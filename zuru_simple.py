@@ -1,161 +1,158 @@
 import streamlit as st
 import ezdxf
 import os
+import io
 from collections import Counter
+import google.generativeai as genai
+import json
 
-st.set_page_config(layout="wide")
-st.title("🏗️ ZURU Tech BIM Analyzer PRO - v2.0")
+# Page config
+st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.2 - Gemini AI")
+st.title("🏗️ ZURU Tech BIM Analyzer PRO")
+st.markdown("**AI DXF/DWG Parser | 52K+ Entities | Room Classification с Gemini**")
 
-uploaded_file = st.file_uploader("📁 DXF/DWG", type=["dxf", "dwg"])
+# Gemini setup - ЗАПАЗИ СВОЯ КЛЮЧ ТУК!
+GEMINI_KEY = "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw"  # https://aistudio.google.com/app/apikey
+if GEMINI_KEY != "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw":
+    genai.configure(api_key=GEMINI_KEY)
+    model = genai.GenerativeModel('gemini-pro')
+    st.success("✅ Gemini AI готов!")
+else:
+    st.warning("⚠️ Добави GEMINI_KEY от aistudio.google.com")
 
-if uploaded_file:
+@st.cache_data
+def parse_dxf(uploaded_file):
+    doc = ezdxf.readfile(uploaded_file)
+    msp = doc.modelspace()
+    
+    # Всички entities
+    all_entities = Counter()
+    layer_stats = Counter()
+    text_entities = []
+    
+    for entity in msp:
+        dxftype = entity.dxftype()
+        all_entities[dxftype] += 1
+        layer_stats[entity.dxf.layer] += 1
+        
+        # TEXT/MTEXT за стаи
+        if dxftype in ('TEXT', 'MTEXT'):
+            text_entities.append(entity)
+    
+    # Room estimate от LWPOLYLINE/HATCH (стаи)
+    rooms = len(msp.query('LWPOLYLINE HATCH'))
+    
+    return all_entities, layer_stats, text_entities, rooms, doc
+
+def classify_rooms_gemini(text_entities, layer_stats):
+    room_texts = []
+    for entity in text_entities:
+        if hasattr(entity.dxf, 'text') and entity.dxf.text:
+            room_texts.append(entity.dxf.text.strip())
+    
+    top_layers = dict(layer_stats.most_common(10))
+    
+    prompt = f"""
+    Анализирай архитектурен DXF чертеж (български/руски текст):
+    
+    TEXT/MTEXT написи (стаи): {room_texts[:30]}
+    
+    Топ layers (обекти): {top_layers}
+    
+    Класифицирай в точен JSON:
+    {{
+        "кухни": ["КУХНЯ 101", "КУХНЯ 2"],
+        "спални": ["СПАЛНЯ 205", "СТАЯ 301"],
+        "бани": ["БАНЯ 15", "ТОАЛЕТНА"],
+        "коридори": ["КОРИДОР А"],
+        "други": ["ОРГАНИЗАТОРСКА"],
+        "total_rooms": {len(room_texts)},
+        "confidence": 0.95
+    }}
+    
+    Само валиден JSON, без допълнителен текст.
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except:
+        return '{"error": "Gemini ключ невалиден или лимит"}'
+
+# File upload
+uploaded_file = st.file_uploader("📁 Качи DXF/DWG (до 200MB)", type=['dxf', 'dwg'])
+
+if uploaded_file is not None:
     filename = uploaded_file.name
-    size_mb = uploaded_file.size / 1024 / 1024
+    file_size = uploaded_file.size / (1024*1024)  # MB
+    st.info(f"📄 {filename} | {file_size:.1f} MB")
     
-    with st.spinner(f"Analyzing {filename}..."):
-        with open(filename, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        doc = ezdxf.readfile(filename)
-        
-        # Entity + Layer stats
-        entity_types = Counter()
-        layer_stats = Counter()
-        
-        for entity in doc.entities:
-            entity_types[entity.dxftype()] += 1
-            layer_stats[entity.dxf.layer] += 1
-        
-        total_entities = sum(entity_types.values())
-        
-        # Metrics
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📊 Total Entities", f"{total_entities:,}")
-        col2.metric("📏 Lines", f"{entity_types['LINE']:,}")
-        col3.metric("📐 Polylines", f"{entity_types.get('LWPOLYLINE', 0):,}")
-        col4.metric("🏠 Rooms", f"{entity_types.get('LWPOLYLINE', 0) // 4:,}")
-        
-        st.success(f"""
-        ✅ **{filename}** ({size_mb:.1f}MB) FULLY PARSED!
-        
-        🔢 **Top 5 Entities**: {dict(entity_types.most_common(5))}
-        📂 **Total Layers**: {len(layer_stats)}
-        🚪 **Doors/Blocks**: {entity_types.get('INSERT', 0):,}
-        """)
-        
-        # Charts
-        col_chart1, col_chart2 = st.columns(2)
-        with col_chart1:
-            st.subheader("📈 Entity Types")
-            st.bar_chart(entity_types)
-        with col_chart2:
-            st.subheader("📂 Top 15 Layers")
-            st.bar_chart(dict(layer_stats.most_common(15)))
-        
-        # 🆕 ROOM TYPE DETECTION (без AI)
-        st.subheader("🏠 **Детайлни стаи по Layers**")
-        room_types = {}
-        for layer, count in layer_stats.items():
-            layer_lower = layer.lower()
-            if any(word in layer_lower for word in ['kitchen', 'кухня', 'cook']):
-                room_types['🍳 Кухни'] = count
-            elif any(word in layer_lower for word in ['bed', 'спалня', 'sleep']):
-                room_types['🛏️ Спални'] = count
-            elif any(word in layer_lower for word in ['bath', 'баня', 'wc', 'toilet', 'shower']):
-                room_types['🚿 Бани'] = count
-            elif any(word in layer_lower for word in ['office', 'офис']):
-                room_types['💼 Офици'] = count
-            elif any(word in layer_lower for word in ['living', 'хол', 'hall']):
-                room_types['🛋️ Холове'] = count
-            elif 'door' in layer_lower:
-                room_types['🚪 Врати'] = count
-            elif 'window' in layer_lower:
-                room_types['🪟 Прозорци'] = count
-        
-        room_types['📦 INSERT blocks'] = entity_types.get('INSERT', 0)
-        st.json(room_types)
-        st.bar_chart(room_types)
-        st.subheader("🏠 **РЪЧЕН анализ на стаи**")
-        manual_rooms = {
-    "🏗️ Стени": layer_stats.get('_wall', 0),
-    "🚪 Врати/Блокове": entity_types.get('INSERT', 0),
-    "🪟 Прозорци": layer_stats.get('_window', 0),
-    "🛋️ Мебели": layer_stats.get('_furnish', 0),
-    "🧱 Подови плочки": layer_stats.get('plo4ki', 0),
-    "📍 Точки": layer_stats.get('_punk', 0),
-    "🔥 Топлоизолация": layer_stats.get('_thermal_insulat', 0),
-    "🌿 Зеленина": layer_stats.get('_vredno_zelenilo', 0),
-    "📐 Оси": layer_stats.get('_axis', 0),
-    "Общо помещения": entity_types.get('LWPOLYLINE', 0) // 4
-}
-
-        st.json(manual_rooms)
-        st.bar_chart(manual_rooms)
-
-        st.info("""
-🏠 **Ръчна оценка**:
-- Врати 7340 = много помещения
-- Стени 5131 + мебели 7234  
-- Плочки plo4ki = подови пространства
-- Топлоизолация = външни стени
-""")
-
-# 🆕 TEXT room names
-st.subheader("📝 **Имена на помещения от TEXT**")
-room_texts = []
-for entity in doc.entities:
-    if entity.dxftype() in ['TEXT', 'MTEXT']:
-        text = str(entity.dxf.text).strip()
-        if text and len(text) < 20:  # Къси текстове = room names
-            room_texts.append(text)
-
-# Групирай по ключови думи
-room_names = Counter()
-for text in room_texts:
-    text_lower = text.lower()
-    if any(word in text_lower for word in ['кухня', 'kitchen', 'ку']):
-        room_names['🍳 Кухня'] += 1
-    elif any(word in text_lower for word in ['спалня', 'bedroom', 'сп']):
-        room_names['🛏️ Спалня'] += 1
-    elif any(word in text_lower for word in ['баня', 'bath', 'wc']):
-        room_names['🚿 Баня'] += 1
-    elif any(word in text_lower for word in ['офис', 'office']):
-        room_names['💼 Офис'] += 1
-    else:
-        room_names['📍 Други'] += 1
-
-st.json(dict(room_names.most_common()))
-st.bar_chart(room_names)
-
-st.write(f"📄 Total room texts: {len(room_texts)}")
-if room_texts:
-    st.write("**Примери**:", room_texts[:10])
-
-        # Export
-        report = f"""🏗️ ZURU BIM Report: {filename}
-📊 Total: {total_entities:,} entities
-🏠 Rooms estimate: {entity_types.get('LWPOLYLINE', 0) // 4:,}
-
-Top Entities: {dict(entity_types.most_common(10))}
-Room Types: {room_types}
-Top Layers: {dict(layer_stats.most_common(10))}
-        """
-        st.download_button("📥 Download Full Report", report, "zuru_bim_report.txt", use_container_width=True)
+    # Parse
+    with st.spinner("Парсинг 52K+ entities..."):
+        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file)
     
-    os.remove(filename)
-    st.balloons()
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📊 Общо entities", f"{sum(all_entities.values()):,}")
+    col2.metric("🏠 Оценени стаи", f"{rooms:,}")
+    col3.metric("📝 TEXT/MTEXT", len(text_entities))
+    
+    # Top entities & layers
+    st.subheader("📈 Топ Entities")
+    st.bar_chart(all_entities.most_common(10))
+    
+    st.subheader("🔍 Топ Layers")
+    st.bar_chart(layer_stats.most_common(15))
+    
+    # Architect highlights
+    doors = layer_stats.get('_door', 0) + all_entities['INSERT']
+    windows = layer_stats.get('_window', 0)
+    walls = layer_stats.get('_wall', 0)
+    furnish = layer_stats.get('_furnish', 0)
+    
+    st.markdown(f"""
+    **🏠 Ключови обекти:**
+    - 🚪 Врати/блокове: **{doors:,}**
+    - 🪟 Прозорци: **{windows:,}**
+    - 🏗️ Стени: **{walls:,}**
+    - 🛋️ Мебели: **{furnish:,}**
+    """)
+    
+    # Gemini Room Classification
+    st.subheader("🤖 Gemini AI Класификация на стаи")
+    col_gem1, col_gem2 = st.columns([1,3])
+    with col_gem1:
+        if st.button("🔍 Класифицирай стаи", use_container_width=True):
+            with st.spinner("Gemini анализира..."):
+                rooms_json = classify_rooms_gemini(text_entities, layer_stats)
+                st.session_state.rooms_json = rooms_json
+    
+    if 'rooms_json' in st.session_state:
+        try:
+            rooms_data = json.loads(st.session_state.rooms_json)
+            st.json(rooms_data)
+            
+            # Charts от Gemini
+            chart_data = {}
+            for key in ['кухни', 'спални', 'бани', 'коридори']:
+                chart_data[key.title()] = len(rooms_data.get(key, []))
+            st.bar_chart(chart_data)
+            
+        except:
+            st.error("❌ JSON грешка: " + st.session_state.rooms_json)
+    
+    # Report download
+    report = f"""
+    🏗️ ZURU BIM Report: {filename}
+    📊 Total: {sum(all_entities.values()):,}
+    🏠 Rooms: {rooms:,}
+    
+    Top Entities: {dict(all_entities.most_common(10))}
+    Top Layers: {dict(layer_stats.most_common(15))}
+    
+    🚪 Doors: {doors:,} | 🪟 Windows: {windows:,} | 🏗️ Walls: {walls:,}
+    """
+    st.download_button("📥 Изтегли Report", report, f"{filename}_report.txt")
 
-st.markdown("""
----
-### 🎯 **Production Ready Features**
-✅ **52K+ entity parser**  
-✅ **28+ layer analysis** (door/window/wall)
-✅ **Room type detection** (кухни/спални/бани)
-✅ **Interactive charts**  
-✅ **Architect reports**
-
-**Live**: zuru-bim-analyzer.streamlit.app
-**GitHub**: github.com/goceterziev-creator/ZURU-BIM-Analyzer
-
-#AYATravel #BIM #AIArchitecture
-""")
+st.markdown("---")
+st.markdown("[GitHub](https://github.com/goceterziev-creator/ZURU-BIM-Analyzer) | #AI #BIM #Architecture")[cite:11][cite:21]

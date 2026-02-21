@@ -1,6 +1,8 @@
 import streamlit as st
 import ezdxf
 import os
+import pandas as pd
+import re
 import io
 import tempfile
 from collections import Counter
@@ -13,7 +15,7 @@ st.title("🏗️ ZURU Tech BIM Analyzer PRO")
 st.markdown("**AI DXF/DWG Parser | 52K+ Entities | Room Classification с Gemini**")
 
 # Gemini setup - ТВОЯТ КЛЮЧ Е ВКЛЮЧЕН!
-GEMINI_KEY = "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw"
+GEMINI_KEY = "AIzaSyCP1JYzFV2oW6J1pKDuUt6rydhCoeR5HlU"
 genai.configure(api_key=GEMINI_KEY)
 model = genai.GenerativeModel('gemini-pro')
 st.success("✅ Gemini AI готов!")
@@ -118,29 +120,34 @@ if uploaded_file is not None:
     - 🛋️ Мебели: **{furnish:,}**
     """)
     
+# Детайлни стаи по TEXT/MTEXT написи
+st.subheader("🏠 Детайлни стаи по написи")
+room_texts = [entity.dxf.text.strip() for entity in text_entities if hasattr(entity.dxf, 'text') and entity.dxf.text]
+
+# Regex за room patterns
+import re
+rooms = {
+    "🛁 Бани/ВЦ": len(re.findall(r'(БАНЯ|ВЦ|ТОАЛЕТНА|WC).*?[-№]?\s*(\d+)', ' '.join(room_texts), re.I)),
+    "🍳 Кухни": len(re.findall(r'(КУХНЯ).*?[-№]?\s*(\d+)', ' '.join(room_texts), re.I)),
+    "🛏️ Хол/Гостински": len(re.findall(r'(ХОЛ|ГОСТИНСКА).*?[-№]?\s*(\d+)', ' '.join(room_texts), re.I)),
+    "🛋️ Спални": len(re.findall(r'(СПАЛНЯ|СТАЯ).*?[-№]?\s*(\d+)', ' '.join(room_texts), re.I)),
+    "🚪 Коридори": len(re.findall(r'(КОРИДОР).*?[-№]?\s*(\d+)', ' '.join(room_texts), re.I))
+}
+
+st.dataframe(pd.DataFrame.from_dict(rooms, orient='index', columns=['Брой']), use_container_width=True)
+st.bar_chart(rooms)
+st.caption(f"Анализирани **{len(room_texts)}** написи като 'БАНЯ-123'")
+
     # Gemini Room Classification
-    st.subheader("🤖 Gemini AI Класификация на стаи")
-    col_gem1, col_gem2 = st.columns([1,3])
-    with col_gem1:
-        if st.button("🔍 Класифицирай стаи", use_container_width=True):
-            with st.spinner("Gemini анализира 1471+ текста..."):
-                rooms_json = classify_rooms_gemini(text_entities, layer_stats)
-                st.session_state.rooms_json = rooms_json
-    
-    if 'rooms_json' in st.session_state:
-        try:
-            rooms_data = json.loads(st.session_state.rooms_json)
-            st.success("✅ AI класификация готова!")
-            st.json(rooms_data)
-            
-            # Charts от Gemini
-            chart_data = {}
-            for key in ['кухни', 'спални', 'бани', 'коридори', 'други']:
-                chart_data[key.title()] = len(rooms_data.get(key, []))
-            st.bar_chart(chart_data)
-            
-        except:
-            st.error("❌ JSON грешка: " + st.session_state.rooms_json)
+    st.subheader("🏠 Детайлни стаи (TEXT анализ)")
+manual_rooms = {
+    "📝 Кухни": sum(1 for t in room_texts if 'КУХН' in t.upper()),
+    "🛏️ Спални": sum(1 for t in room_texts if 'СПАЛН' in t.upper()),
+    "🚿 Бани": sum(1 for t in room_texts if any(word in t.upper() for word in ['БАНЯ', 'ТОАЛЕТ', 'WC'])),
+    "🚪 Коридори": sum(1 for t in room_texts if 'КОРИД' in t.upper())
+}
+st.bar_chart(manual_rooms)
+st.write(f"Общо анализирани: **{len(room_texts)}** написи")
     
     # Report download
     report = f"""

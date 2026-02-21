@@ -81,9 +81,8 @@ if uploaded_file is not None:
     file_size = uploaded_file.size / (1024*1024)  # MB
     st.info(f"📄 {filename} | {file_size:.1f} MB")
     
-    # Parse ТУК - ВНТРЕ в if!
     with st.spinner("Парсинг 52K+ entities..."):
-    all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue())  # Само bytes!
+        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue())
     
     # Metrics
     col1, col2, col3 = st.columns(3)

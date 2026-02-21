@@ -2,14 +2,9 @@ import streamlit as st
 import ezdxf
 import os
 from collections import Counter
-import google.generativeai as genai  # Gemini
-
-# Твоя Gemini key (замени)
-GEMINI_KEY = "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw"  # От AI Studio
-genai.configure(api_key=GEMINI_KEY)
 
 st.set_page_config(layout="wide")
-st.title("🏗️ ZURU Tech BIM Analyzer PRO")
+st.title("🏗️ ZURU Tech BIM Analyzer PRO - v2.0")
 
 uploaded_file = st.file_uploader("📁 DXF/DWG", type=["dxf", "dwg"])
 
@@ -23,7 +18,7 @@ if uploaded_file:
         
         doc = ezdxf.readfile(filename)
         
-        # Stats
+        # Entity + Layer stats
         entity_types = Counter()
         layer_stats = Counter()
         
@@ -33,67 +28,79 @@ if uploaded_file:
         
         total_entities = sum(entity_types.values())
         
-        col1, col2, col3 = st.columns(3)
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
         col1.metric("📊 Total Entities", f"{total_entities:,}")
-        col2.metric("📐 Polylines", f"{entity_types['LWPOLYLINE']:,}")
-        col3.metric("🏠 Est. Rooms", f"{entity_types['LWPOLYLINE'] // 4:,}")
+        col2.metric("📏 Lines", f"{entity_types['LINE']:,}")
+        col3.metric("📐 Polylines", f"{entity_types.get('LWPOLYLINE', 0):,}")
+        col4.metric("🏠 Rooms", f"{entity_types.get('LWPOLYLINE', 0) // 4:,}")
         
         st.success(f"""
         ✅ **{filename}** ({size_mb:.1f}MB) FULLY PARSED!
-        🔢 Top Entities: {dict(entity_types.most_common(5))}
-        📂 Layers: {len(layer_stats)}
+        
+        🔢 **Top 5 Entities**: {dict(entity_types.most_common(5))}
+        📂 **Total Layers**: {len(layer_stats)}
+        🚪 **Doors/Blocks**: {entity_types.get('INSERT', 0):,}
         """)
         
         # Charts
-        st.subheader("📈 Entity Breakdown")
-        st.bar_chart(entity_types)
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            st.subheader("📈 Entity Types")
+            st.bar_chart(entity_types)
+        with col_chart2:
+            st.subheader("📂 Top 15 Layers")
+            st.bar_chart(dict(layer_stats.most_common(15)))
         
-        st.subheader("📂 Top 15 Layers")
-        st.bar_chart(dict(layer_stats.most_common(15)))
+        # 🆕 ROOM TYPE DETECTION (без AI)
+        st.subheader("🏠 **Детайлни стаи по Layers**")
+        room_types = {}
+        for layer, count in layer_stats.items():
+            layer_lower = layer.lower()
+            if any(word in layer_lower for word in ['kitchen', 'кухня', 'cook']):
+                room_types['🍳 Кухни'] = count
+            elif any(word in layer_lower for word in ['bed', 'спалня', 'sleep']):
+                room_types['🛏️ Спални'] = count
+            elif any(word in layer_lower for word in ['bath', 'баня', 'wc', 'toilet', 'shower']):
+                room_types['🚿 Бани'] = count
+            elif any(word in layer_lower for word in ['office', 'офис']):
+                room_types['💼 Офици'] = count
+            elif any(word in layer_lower for word in ['living', 'хол', 'hall']):
+                room_types['🛋️ Холове'] = count
+            elif 'door' in layer_lower:
+                room_types['🚪 Врати'] = count
+            elif 'window' in layer_lower:
+                room_types['🪟 Прозорци'] = count
         
-        # AI Room Detection
-        if st.button("🔍 **Детайлни стаи (AI Gemini)**"):
-            prompt = f"""
-DXF building analysis:
-Lines: {entity_types['LINE']:,} 
-Polylines: {entity_types['LWPOLYLINE']:,}
-INSERT (doors): {entity_types['INSERT']:,}
-Layers: {list(layer_stats.keys())[:10]}
-
-Estimate room types JSON:
-{{
-  "кухни": number,
-  "спални": number,
-  "бани": number, 
-  "холове": number,
-  "офици": number
-}}
-            """
-            
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            
-            st.markdown("### 🤖 **Gemini AI Room Analysis**")
-            st.json(response.text)
-            st.balloons()
+        room_types['📦 INSERT blocks'] = entity_types.get('INSERT', 0)
+        st.json(room_types)
+        st.bar_chart(room_types)
         
         # Export
-        report = f"""ZURU BIM Report: {filename}
-Total: {total_entities:,}
-Rooms: {entity_types['LWPOLYLINE'] // 4:,}
-{entity_types}
-{layer_stats.most_common(10)}
+        report = f"""🏗️ ZURU BIM Report: {filename}
+📊 Total: {total_entities:,} entities
+🏠 Rooms estimate: {entity_types.get('LWPOLYLINE', 0) // 4:,}
+
+Top Entities: {dict(entity_types.most_common(10))}
+Room Types: {room_types}
+Top Layers: {dict(layer_stats.most_common(10))}
         """
-        st.download_button("📥 Download Report", report, "zuru_report.txt")
+        st.download_button("📥 Download Full Report", report, "zuru_bim_report.txt", use_container_width=True)
     
     os.remove(filename)
+    st.balloons()
 
 st.markdown("""
-### 🎯 Production Features
-✅ 52K+ entity parser
-✅ Layer charts  
-✅ Room estimation
-✅ AI room classification  
-✅ Architect reports
-Live: zuru-bim-analyzer.streamlit.app
+---
+### 🎯 **Production Ready Features**
+✅ **52K+ entity parser**  
+✅ **28+ layer analysis** (door/window/wall)
+✅ **Room type detection** (кухни/спални/бани)
+✅ **Interactive charts**  
+✅ **Architect reports**
+
+**Live**: zuru-bim-analyzer.streamlit.app
+**GitHub**: github.com/goceterziev-creator/ZURU-BIM-Analyzer
+
+#AYATravel #BIM #AIArchitecture
 """)

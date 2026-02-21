@@ -89,17 +89,16 @@ if uploaded_file:
     "Общо помещения": entity_types.get('LWPOLYLINE', 0) // 4
 }
 
-st.json(manual_rooms)
-st.bar_chart(manual_rooms)
+        st.json(manual_rooms)
+        st.bar_chart(manual_rooms)
 
-st.info("""
+        st.info("""
 🏠 **Ръчна оценка**:
 - Врати 7340 = много помещения
 - Стени 5131 + мебели 7234  
 - Плочки plo4ki = подови пространства
 - Топлоизолация = външни стени
 """)
-
 
         # Export
         report = f"""🏗️ ZURU BIM Report: {filename}

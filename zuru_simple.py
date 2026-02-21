@@ -86,9 +86,9 @@ if uploaded_file is not None:
     file_size = uploaded_file.size / (1024*1024)  # MB
     st.info(f"📄 {filename} | {file_size:.1f} MB")
     
-    # Parse
-    with st.spinner("Парсинг 52K+ entities..."):
-        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file)
+# Parse fix
+with st.spinner("Парсинг 52K+ entities..."):
+    all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue(), uploaded_file.name)
     
     # Metrics
     col1, col2, col3 = st.columns(3)
@@ -154,4 +154,4 @@ if uploaded_file is not None:
     st.download_button("📥 Изтегли Report", report, f"{filename}_report.txt")
 
 st.markdown("---")
-st.markdown("[GitHub](https://github.com/goceterziev-creator/ZURU-BIM-Analyzer) | #AI #BIM #Architecture")[cite:11][cite:21]
+st.markdown("[GitHub](https://github.com/goceterziev-creator/ZURU-BIM-Analyzer) | #AI #BIM #Architecture")

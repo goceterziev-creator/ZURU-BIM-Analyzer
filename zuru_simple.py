@@ -11,19 +11,14 @@ st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.2 - Gemin
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
 st.markdown("**AI DXF/DWG Parser | 52K+ Entities | Room Classification с Gemini**")
 
-# Gemini setup - ЗАПАЗИ СВОЯ КЛЮЧ ТУК!
-GEMINI_KEY = "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw"  # https://aistudio.google.com/app/apikey
-if GEMINI_KEY != "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw":
-    genai.configure(api_key=GEMINI_KEY)
-    model = genai.GenerativeModel('gemini-pro')
-    st.success("✅ Gemini AI готов!")
-else:
-    st.warning("⚠️ Добави GEMINI_KEY от aistudio.google.com")
+# Gemini setup - ТВОЯТ КЛЮЧ Е ВКЛЮЧЕН!
+GEMINI_KEY = "AIzaSyAgT7BuHtldHB4ReHsvkx2mCQOvBY0roJw"
+genai.configure(api_key=GEMINI_KEY)
+model = genai.GenerativeModel('gemini-pro')
+st.success("✅ Gemini AI готов!")
 
 @st.cache_data
-@st.cache_data
 def parse_dxf(file_bytes, filename):
-    # Streamlit fix: save to BytesIO
     doc = ezdxf.readfile(io.BytesIO(file_bytes))
     msp = doc.modelspace()
     
@@ -86,9 +81,9 @@ if uploaded_file is not None:
     file_size = uploaded_file.size / (1024*1024)  # MB
     st.info(f"📄 {filename} | {file_size:.1f} MB")
     
-# Parse fix
-with st.spinner("Парсинг 52K+ entities..."):
-    all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue(), uploaded_file.name)
+    # Parse ТУК - ВНТРЕ в if!
+    with st.spinner("Парсинг 52K+ entities..."):
+        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue(), uploaded_file.name)
     
     # Metrics
     col1, col2, col3 = st.columns(3)

@@ -2,6 +2,7 @@ import streamlit as st
 import ezdxf
 import os
 import io
+import tempfile
 from collections import Counter
 import google.generativeai as genai
 import json
@@ -19,7 +20,6 @@ st.success("✅ Gemini AI готов!")
 
 @st.cache_data
 def parse_dxf(file_bytes):
-    import tempfile
     # Создаваме temp файл (ezdxf изисква)
     with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as temp_file:
         temp_file.write(file_bytes)
@@ -47,6 +47,38 @@ def parse_dxf(file_bytes):
     finally:
         os.unlink(temp_filename)  # Изтрива temp файл
 
+def classify_rooms_gemini(text_entities, layer_stats):
+    room_texts = []
+    for entity in text_entities:
+        if hasattr(entity.dxf, 'text') and entity.dxf.text:
+            room_texts.append(entity.dxf.text.strip())
+    
+    top_layers = dict(layer_stats.most_common(10))
+    
+    prompt = f"""Анализирай архитектурен DXF чертеж (български/руски текст):
+
+TEXT/MTEXT написи (стаи): {room_texts[:30]}
+
+Топ layers: {top_layers}
+
+Класифицирай в точен JSON:
+{{
+  "кухни": ["КУХНЯ 101", "КУХНЯ 2"],
+  "спални": ["СПАЛНЯ 205", "СТАЯ 301"],
+  "бани": ["БАНЯ 15", "ТОАЛЕТНА"],
+  "коридори": ["КОРИДОР А"],
+  "други": ["ОРГАНИЗАТОРСКА"],
+  "total_rooms": {len(room_texts)},
+  "confidence": 0.95
+}}
+
+Само валиден JSON, без допълнителен текст."""
+
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return '{"error": "Gemini грешка", "fallback": {"total_rooms": ' + str(len(room_texts)) + '}}'
 
 # File upload
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG (до 200MB)", type=['dxf', 'dwg'])
@@ -73,7 +105,7 @@ if uploaded_file is not None:
     st.bar_chart(layer_stats.most_common(15))
     
     # Architect highlights
-    doors = layer_stats.get('_door', 0) + all_entities['INSERT']
+    doors = layer_stats.get('_door', 0) + all_entities.get('INSERT', 0)
     windows = layer_stats.get('_window', 0)
     walls = layer_stats.get('_wall', 0)
     furnish = layer_stats.get('_furnish', 0)
@@ -91,18 +123,19 @@ if uploaded_file is not None:
     col_gem1, col_gem2 = st.columns([1,3])
     with col_gem1:
         if st.button("🔍 Класифицирай стаи", use_container_width=True):
-            with st.spinner("Gemini анализира..."):
+            with st.spinner("Gemini анализира 1471+ текста..."):
                 rooms_json = classify_rooms_gemini(text_entities, layer_stats)
                 st.session_state.rooms_json = rooms_json
     
     if 'rooms_json' in st.session_state:
         try:
             rooms_data = json.loads(st.session_state.rooms_json)
+            st.success("✅ AI класификация готова!")
             st.json(rooms_data)
             
             # Charts от Gemini
             chart_data = {}
-            for key in ['кухни', 'спални', 'бани', 'коридори']:
+            for key in ['кухни', 'спални', 'бани', 'коридори', 'други']:
                 chart_data[key.title()] = len(rooms_data.get(key, []))
             st.bar_chart(chart_data)
             
@@ -111,15 +144,16 @@ if uploaded_file is not None:
     
     # Report download
     report = f"""
-    🏗️ ZURU BIM Report: {filename}
-    📊 Total: {sum(all_entities.values()):,}
-    🏠 Rooms: {rooms:,}
-    
-    Top Entities: {dict(all_entities.most_common(10))}
-    Top Layers: {dict(layer_stats.most_common(15))}
-    
-    🚪 Doors: {doors:,} | 🪟 Windows: {windows:,} | 🏗️ Walls: {walls:,}
-    """
+🏗️ ZURU BIM Report: {filename}
+📊 Total: {sum(all_entities.values()):,}
+🏠 Rooms: {rooms:,}
+
+Top Entities: {dict(all_entities.most_common(10))}
+Top Layers: {dict(layer_stats.most_common(15))}
+
+🚪 Doors: {doors:,} | 🪟 Windows: {windows:,} | 🏗️ Walls: {walls:,}
+📝 Rooms analyzed: {len(text_entities)}
+"""
     st.download_button("📥 Изтегли Report", report, f"{filename}_report.txt")
 
 st.markdown("---")

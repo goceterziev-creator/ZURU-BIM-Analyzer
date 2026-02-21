@@ -18,60 +18,35 @@ model = genai.GenerativeModel('gemini-pro')
 st.success("✅ Gemini AI готов!")
 
 @st.cache_data
-def parse_dxf(file_bytes):  # ← ПРЕМАХНИ filename!
-    doc = ezdxf.readfile(io.BytesIO(file_bytes))  # Само bytes!
-    msp = doc.modelspace()
-
-    all_entities = Counter()
-    layer_stats = Counter()
-    text_entities = []
-    
-    for entity in msp:
-        dxftype = entity.dxftype()
-        all_entities[dxftype] += 1
-        layer_stats[entity.dxf.layer] += 1
-        
-        if dxftype in ('TEXT', 'MTEXT'):
-            text_entities.append(entity)
-    
-    rooms = len(msp.query('LWPOLYLINE HATCH'))
-    
-    return all_entities, layer_stats, text_entities, rooms, doc
-
-def classify_rooms_gemini(text_entities, layer_stats):
-    room_texts = []
-    for entity in text_entities:
-        if hasattr(entity.dxf, 'text') and entity.dxf.text:
-            room_texts.append(entity.dxf.text.strip())
-    
-    top_layers = dict(layer_stats.most_common(10))
-    
-    prompt = f"""
-    Анализирай архитектурен DXF чертеж (български/руски текст):
-    
-    TEXT/MTEXT написи (стаи): {room_texts[:30]}
-    
-    Топ layers (обекти): {top_layers}
-    
-    Класифицирай в точен JSON:
-    {{
-        "кухни": ["КУХНЯ 101", "КУХНЯ 2"],
-        "спални": ["СПАЛНЯ 205", "СТАЯ 301"],
-        "бани": ["БАНЯ 15", "ТОАЛЕТНА"],
-        "коридори": ["КОРИДОР А"],
-        "други": ["ОРГАНИЗАТОРСКА"],
-        "total_rooms": {len(room_texts)},
-        "confidence": 0.95
-    }}
-    
-    Само валиден JSON, без допълнителен текст.
-    """
+def parse_dxf(file_bytes):
+    import tempfile
+    # Создаваме temp файл (ezdxf изисква)
+    with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as temp_file:
+        temp_file.write(file_bytes)
+        temp_filename = temp_file.name
     
     try:
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except:
-        return '{"error": "Gemini ключ невалиден или лимит"}'
+        doc = ezdxf.readfile(temp_filename)
+        msp = doc.modelspace()
+        
+        all_entities = Counter()
+        layer_stats = Counter()
+        text_entities = []
+        
+        for entity in msp:
+            dxftype = entity.dxftype()
+            all_entities[dxftype] += 1
+            layer_stats[entity.dxf.layer] += 1
+            
+            if dxftype in ('TEXT', 'MTEXT'):
+                text_entities.append(entity)
+        
+        rooms = len(msp.query('LWPOLYLINE HATCH'))
+        return all_entities, layer_stats, text_entities, rooms, doc
+        
+    finally:
+        os.unlink(temp_filename)  # Изтрива temp файл
+
 
 # File upload
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG (до 200MB)", type=['dxf', 'dwg'])

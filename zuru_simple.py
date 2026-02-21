@@ -18,10 +18,10 @@ model = genai.GenerativeModel('gemini-pro')
 st.success("✅ Gemini AI готов!")
 
 @st.cache_data
-def parse_dxf(file_bytes, filename):
-    doc = ezdxf.readfile(io.BytesIO(file_bytes))
+def parse_dxf(file_bytes):  # ← ПРЕМАХНИ filename!
+    doc = ezdxf.readfile(io.BytesIO(file_bytes))  # Само bytes!
     msp = doc.modelspace()
-    
+
     all_entities = Counter()
     layer_stats = Counter()
     text_entities = []
@@ -83,7 +83,7 @@ if uploaded_file is not None:
     
     # Parse ТУК - ВНТРЕ в if!
     with st.spinner("Парсинг 52K+ entities..."):
-        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue(), uploaded_file.name)
+    all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue())  # Само bytes!
     
     # Metrics
     col1, col2, col3 = st.columns(3)

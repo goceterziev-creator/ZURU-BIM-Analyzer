@@ -89,10 +89,10 @@ if uploaded_file:
     "Общо помещения": entity_types.get('LWPOLYLINE', 0) // 4
 }
 
-st.json(manual_rooms)
-st.bar_chart(manual_rooms)
+        st.json(manual_rooms)
+        st.bar_chart(manual_rooms)
 
-st.info("""
+        st.info("""
 🏠 **Ръчна оценка**:
 - Врати 7340 = много помещения
 - Стени 5131 + мебели 7234  
@@ -100,6 +100,36 @@ st.info("""
 - Топлоизолация = външни стени
 """)
 
+# 🆕 TEXT room names
+st.subheader("📝 **Имена на помещения от TEXT**")
+room_texts = []
+for entity in doc.entities:
+    if entity.dxftype() in ['TEXT', 'MTEXT']:
+        text = str(entity.dxf.text).strip()
+        if text and len(text) < 20:  # Къси текстове = room names
+            room_texts.append(text)
+
+# Групирай по ключови думи
+room_names = Counter()
+for text in room_texts:
+    text_lower = text.lower()
+    if any(word in text_lower for word in ['кухня', 'kitchen', 'ку']):
+        room_names['🍳 Кухня'] += 1
+    elif any(word in text_lower for word in ['спалня', 'bedroom', 'сп']):
+        room_names['🛏️ Спалня'] += 1
+    elif any(word in text_lower for word in ['баня', 'bath', 'wc']):
+        room_names['🚿 Баня'] += 1
+    elif any(word in text_lower for word in ['офис', 'office']):
+        room_names['💼 Офис'] += 1
+    else:
+        room_names['📍 Други'] += 1
+
+st.json(dict(room_names.most_common()))
+st.bar_chart(room_names)
+
+st.write(f"📄 Total room texts: {len(room_texts)}")
+if room_texts:
+    st.write("**Примери**:", room_texts[:10])
 
         # Export
         report = f"""🏗️ ZURU BIM Report: {filename}

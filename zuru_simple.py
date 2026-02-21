@@ -75,7 +75,32 @@ if uploaded_file:
         room_types['📦 INSERT blocks'] = entity_types.get('INSERT', 0)
         st.json(room_types)
         st.bar_chart(room_types)
-        
+        st.subheader("🏠 **РЪЧЕН анализ на стаи**")
+        manual_rooms = {
+    "🏗️ Стени": layer_stats.get('_wall', 0),
+    "🚪 Врати/Блокове": entity_types.get('INSERT', 0),
+    "🪟 Прозорци": layer_stats.get('_window', 0),
+    "🛋️ Мебели": layer_stats.get('_furnish', 0),
+    "🧱 Подови плочки": layer_stats.get('plo4ki', 0),
+    "📍 Точки": layer_stats.get('_punk', 0),
+    "🔥 Топлоизолация": layer_stats.get('_thermal_insulat', 0),
+    "🌿 Зеленина": layer_stats.get('_vredno_zelenilo', 0),
+    "📐 Оси": layer_stats.get('_axis', 0),
+    "Общо помещения": entity_types.get('LWPOLYLINE', 0) // 4
+}
+
+st.json(manual_rooms)
+st.bar_chart(manual_rooms)
+
+st.info("""
+🏠 **Ръчна оценка**:
+- Врати 7340 = много помещения
+- Стени 5131 + мебели 7234  
+- Плочки plo4ki = подови пространства
+- Топлоизолация = външни стени
+""")
+
+
         # Export
         report = f"""🏗️ ZURU BIM Report: {filename}
 📊 Total: {total_entities:,} entities

@@ -21,11 +21,12 @@ else:
     st.warning("⚠️ Добави GEMINI_KEY от aistudio.google.com")
 
 @st.cache_data
-def parse_dxf(uploaded_file):
-    doc = ezdxf.readfile(uploaded_file)
+@st.cache_data
+def parse_dxf(file_bytes, filename):
+    # Streamlit fix: save to BytesIO
+    doc = ezdxf.readfile(io.BytesIO(file_bytes))
     msp = doc.modelspace()
     
-    # Всички entities
     all_entities = Counter()
     layer_stats = Counter()
     text_entities = []
@@ -35,11 +36,9 @@ def parse_dxf(uploaded_file):
         all_entities[dxftype] += 1
         layer_stats[entity.dxf.layer] += 1
         
-        # TEXT/MTEXT за стаи
         if dxftype in ('TEXT', 'MTEXT'):
             text_entities.append(entity)
     
-    # Room estimate от LWPOLYLINE/HATCH (стаи)
     rooms = len(msp.query('LWPOLYLINE HATCH'))
     
     return all_entities, layer_stats, text_entities, rooms, doc

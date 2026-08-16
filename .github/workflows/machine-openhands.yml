@@ -1,0 +1,64 @@
+name: MACHINE OpenHands Executor
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  models: read
+
+jobs:
+  execute-bounded-machine-task:
+    if: github.event.issue.number == 2 && github.event.label.name == 'machine-execute'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install OpenHands resolver
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'openhands-ai==1.7.0'
+
+      - name: Resolve MACHINE issue with OpenHands
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_USERNAME: ${{ github.repository_owner }}
+          LLM_MODEL: openai/openai/gpt-4o
+          LLM_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          LLM_BASE_URL: https://models.github.ai/inference
+          OPENHANDS_MAX_ITER: '20'
+        run: |
+          python -m openhands.resolver.resolve_issue \
+            --selected-repo '${{ github.repository }}' \
+            --issue-number '${{ github.event.issue.number }}'
+
+      - name: Publish executor result as draft PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_USERNAME: ${{ github.repository_owner }}
+        run: |
+          python -m openhands.resolver.send_pull_request \
+            --issue-number '${{ github.event.issue.number }}' \
+            --username '${{ github.repository_owner }}' \
+            --pr-type draft
+
+      - name: Report failure to issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment '${{ github.event.issue.number }}' \
+            --body 'MACHINE executor run failed before producing a reviewable draft PR. Inspect the GitHub Actions run; do not merge or bypass the failure.'

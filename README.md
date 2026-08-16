@@ -7,7 +7,7 @@ ZURU is an evidence-bound DXF analysis app built with Streamlit and `ezdxf`.
 - Upload DXF files.
 - Extract deterministic DXF source facts: entity type, layer, handle, block name and text where available.
 - Show entity and layer statistics.
-- Export normalized evidence as JSON.
+- Preview and export normalized evidence as JSON.
 - Run bounded room-label heuristics from TEXT/MTEXT labels such as `БАНЯ-123` and `КУХНЯ-123`.
 - Optionally run Gemini as a separate inference layer when `GEMINI_API_KEY` is configured.
 
@@ -19,7 +19,7 @@ ZURU intentionally separates:
 2. **Heuristics** — naming/geometry signals that may help interpretation but are not treated as proven BIM semantics.
 3. **AI inference** — optional and clearly separated from deterministic parsing.
 
-The current normalized evidence schema is implemented in `dxf_evidence.py`.
+The normalized evidence schema is implemented in `dxf_evidence.py`; deterministic analysis lives in `zuru_core.py`.
 
 ## Run locally
 
@@ -46,7 +46,7 @@ export GEMINI_API_KEY=your_key_here
 python -m unittest discover -v
 ```
 
-The test suite includes synthetic architectural DXF ground truth and a non-BIM negative case.
+The suite includes normalized-entity tests, synthetic architectural DXF ground truth and a non-BIM negative case. GitHub Actions runs the suite on branches and pull requests.
 
 ## File support
 

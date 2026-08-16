@@ -15,39 +15,30 @@ Rules (v1):
 - room_label: TEXT or MTEXT where text matches ROOM_PATTERNS (imported from zuru_core)
   OR text-bearing entity on layer == "_room".
 - unknown: returned whenever no rule matches or more than one class would match
-  (conflicting evidence).  Never guess from generic INSERT or geometry types alone.
+  (conflicting evidence). Never guess from generic INSERT or geometry types alone.
 
-Provenance: list of dicts {"fact": <field>, "value": <value>} indicating which
-source facts triggered the classification. The original evidence records are
-preserved untouched.
+Provenance: list of dicts {"fact": <field>, "value": <value>} containing only
+source facts that actually triggered the selected classification. The original
+normalized evidence records are preserved untouched.
 """
-from typing import List, Dict
+from typing import Dict, List
+
 from zuru_core import ROOM_PATTERNS
 
-# simple substring keywords for furnishing detection — conservative and deterministic
-FURNISH_KEYWORDS = ("chair", "table", "sofa", "bed", "cabinet", "armchair")
 
-_CLASSES = {"door", "window", "wall", "furnishing", "room_label", "unknown"}
+FURNISH_KEYWORDS = ("chair", "table", "sofa", "bed", "cabinet", "armchair")
 
 
 def _match_room_text(text: str) -> bool:
     if not text:
         return False
-    for _, pattern in ROOM_PATTERNS.items():
-        if pattern.search(text):
-            return True
-    return False
+    return any(pattern.search(text) for pattern in ROOM_PATTERNS.values())
 
 
 def classify_evidence(evidence_records: List[Dict]) -> List[Dict]:
-    """Classify each evidence record conservatively.
-
-    Returns a list of results with keys:
-      - record: original evidence record (unchanged)
-      - classification: one of supported classes
-      - provenance: list of {fact, value} that triggered the classification
-    """
+    """Classify normalized evidence records conservatively and deterministically."""
     results = []
+
     for record in evidence_records:
         candidates = []
         prov = []
@@ -56,14 +47,16 @@ def classify_evidence(evidence_records: List[Dict]) -> List[Dict]:
         block = record.get("block_name")
         text = record.get("text")
 
-        # room_label: TEXT/MTEXT matching patterns or on _room layer
-        if etype in ("TEXT", "MTEXT") and (_match_room_text(text) or (layer and layer.casefold() == "_room")):
-            candidates.append("room_label")
-            prov.append({"fact": "text", "value": text})
-            if layer:
-                prov.append({"fact": "layer", "value": layer})
+        if etype in ("TEXT", "MTEXT"):
+            text_matches_room = _match_room_text(text)
+            layer_marks_room = bool(layer and layer.casefold() == "_room")
+            if text_matches_room or layer_marks_room:
+                candidates.append("room_label")
+                if text_matches_room:
+                    prov.append({"fact": "text", "value": text})
+                if layer_marks_room:
+                    prov.append({"fact": "layer", "value": layer})
 
-        # door: INSERT with explicit door layer or block name containing 'door'
         if etype == "INSERT":
             if layer and layer.casefold() == "_door":
                 candidates.append("door")
@@ -72,7 +65,6 @@ def classify_evidence(evidence_records: List[Dict]) -> List[Dict]:
                 candidates.append("door")
                 prov.append({"fact": "block_name", "value": block})
 
-            # window
             if layer and layer.casefold() == "_window":
                 candidates.append("window")
                 prov.append({"fact": "layer", "value": layer})
@@ -80,35 +72,30 @@ def classify_evidence(evidence_records: List[Dict]) -> List[Dict]:
                 candidates.append("window")
                 prov.append({"fact": "block_name", "value": block})
 
-            # furnishing: explicit furnish layer or furnishing keywords in block name
             if layer and layer.casefold() == "_furnish":
                 candidates.append("furnishing")
                 prov.append({"fact": "layer", "value": layer})
             if block:
-                bl = block.casefold()
-                if any(k in bl for k in FURNISH_KEYWORDS):
+                block_folded = block.casefold()
+                if any(keyword in block_folded for keyword in FURNISH_KEYWORDS):
                     candidates.append("furnishing")
                     prov.append({"fact": "block_name", "value": block})
 
-        # wall: geometric entities but only when on explicit _wall layer
         if etype in ("LINE", "LWPOLYLINE", "HATCH") and layer and layer.casefold() == "_wall":
             candidates.append("wall")
             prov.append({"fact": "layer", "value": layer})
             prov.append({"fact": "entity_type", "value": etype})
 
-        # Canonicalize candidate list: unique
         unique_candidates = []
-        for c in candidates:
-            if c not in unique_candidates:
-                unique_candidates.append(c)
+        for candidate in candidates:
+            if candidate not in unique_candidates:
+                unique_candidates.append(candidate)
 
-        # Decide result: unknown if none or >1 (conflict)
         if len(unique_candidates) == 1:
             classification = unique_candidates[0]
             provenance = prov
         else:
             classification = "unknown"
-            # include the facts that were considered, even if conflicting or empty
             provenance = prov or [
                 {"fact": "entity_type", "value": etype},
                 {"fact": "layer", "value": layer},
@@ -116,6 +103,12 @@ def classify_evidence(evidence_records: List[Dict]) -> List[Dict]:
                 {"fact": "text", "value": text},
             ]
 
-        results.append({"record": record, "classification": classification, "provenance": provenance})
+        results.append(
+            {
+                "record": record,
+                "classification": classification,
+                "provenance": provenance,
+            }
+        )
 
     return results

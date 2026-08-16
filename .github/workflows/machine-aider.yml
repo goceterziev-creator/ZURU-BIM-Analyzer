@@ -29,8 +29,8 @@ jobs:
       - name: Install executor and project
         run: |
           python -m pip install --upgrade pip
-          pip install aider-chat
           pip install -r requirements.txt
+          pip install aider-chat
 
       - name: Prepare bounded branch and prompt
         env:

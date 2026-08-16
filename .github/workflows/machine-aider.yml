@@ -1,4 +1,4 @@
-name: MACHINE Aider Executor
+name: MACHINE Copilot Executor
 
 on:
   issues:
@@ -8,6 +8,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  copilot-requests: write
 
 jobs:
   execute-bounded-machine-task:
@@ -26,81 +27,37 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install isolated project and executor environments
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install isolated ZURU environment
         run: |
           python -m venv /tmp/zuru-venv
           /tmp/zuru-venv/bin/python -m pip install --upgrade pip
           /tmp/zuru-venv/bin/pip install -r requirements.txt
-          python -m venv /tmp/aider-venv
-          /tmp/aider-venv/bin/python -m pip install --upgrade pip
-          /tmp/aider-venv/bin/pip install aider-chat
+
+      - name: Install GitHub Copilot CLI
+        run: npm install -g @github/copilot
 
       - name: Prepare bounded branch and prompt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH="executor/issue-${{ github.event.issue.number }}-${{ github.run_id }}"
+          BRANCH="executor/copilot-issue-${{ github.event.issue.number }}-${{ github.run_id }}"
           echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
-          git config user.name "MACHINE Aider Executor"
-          git config user.email "machine-aider@users.noreply.github.com"
+          git config user.name "MACHINE Copilot Executor"
+          git config user.email "machine-copilot@users.noreply.github.com"
           git checkout -b "$BRANCH"
           gh issue view '${{ github.event.issue.number }}' --json title,body --jq '.title + "\n\n" + .body' > /tmp/machine-task.md
-          printf '%s\n' '' 'EXECUTOR RULES:' '- Work only on this bounded issue.' '- Preserve normalized DXF evidence as source truth.' '- Do not add DWG ingestion.' '- Do not require Gemini or any external API for deterministic behavior.' '- Add and run the tests required by the issue.' '- Do not merge main.' '- Implement the change in the repository; do not merely describe it.' '- Make actual repository edits before returning.' >> /tmp/machine-task.md
+          printf '%s\n' '' 'EXECUTOR RULES:' '- Work only on this bounded issue.' '- Preserve normalized DXF evidence as source truth.' '- Do not add DWG ingestion.' '- Do not require external AI APIs for deterministic product behavior.' '- Add and run the tests required by the issue.' '- Do not merge main.' '- Implement the change in the repository; do not merely describe it.' '- Make actual repository edits before returning.' >> /tmp/machine-task.md
 
-      - name: Probe selected free model
+      - name: Execute bounded task with GitHub Copilot CLI
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-            echo 'OPENROUTER_API_KEY secret is missing.'
-            exit 1
-          fi
-          MODEL='qwen/qwen3-next-80b-a3b-instruct:free'
-          echo "MODEL=$MODEL" >> "$GITHUB_ENV"
-          python - <<'PY'
-          import json, os, urllib.request, urllib.error
-          model = 'qwen/qwen3-next-80b-a3b-instruct:free'
-          payload = json.dumps({
-              'model': model,
-              'messages': [{'role': 'user', 'content': 'Reply with exactly OK.'}],
-              'max_tokens': 8,
-              'temperature': 0,
-          }).encode()
-          req = urllib.request.Request(
-              'https://openrouter.ai/api/v1/chat/completions',
-              data=payload,
-              headers={
-                  'Authorization': 'Bearer ' + os.environ['OPENROUTER_API_KEY'],
-                  'Content-Type': 'application/json',
-                  'HTTP-Referer': 'https://github.com/goceterziev-creator/ZURU-BIM-Analyzer',
-                  'X-Title': 'GT63 MACHINE ZURU Executor Probe',
-              },
-              method='POST',
-          )
-          try:
-              with urllib.request.urlopen(req, timeout=60) as r:
-                  body = json.load(r)
-          except urllib.error.HTTPError as e:
-              print(e.read().decode('utf-8', errors='replace'))
-              raise
-          if not body.get('choices'):
-              raise SystemExit('Provider probe returned no choices')
-          print('Provider probe PASS for', model)
-          PY
-
-      - name: Execute bounded task with isolated Aider
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          /tmp/aider-venv/bin/aider \
-            --model "openrouter/$MODEL" \
-            --message-file /tmp/machine-task.md \
-            --yes-always \
-            --no-auto-commits \
-            --no-pretty \
-            --no-stream \
-            --no-gitignore \
-            zuru_core.py test_zuru_core.py
+          copilot --yolo -p "$(cat /tmp/machine-task.md)"
 
       - name: Verify executor changes
         run: |
@@ -127,7 +84,7 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title 'Executor: Evidence-Bound Element Classification v1' \
-            --body "Delegated implementation for Issue #2. Generated by the bounded MACHINE Aider executor using $MODEL via OpenRouter. Provider probe and automated verification passed before push. This PR MUST NOT be merged until MACHINE review and Human Gate."
+            --body 'Delegated implementation for Issue #2. Generated by the bounded MACHINE Copilot CLI executor. Automated verification passed before push. This PR MUST NOT be merged until MACHINE review and Human Gate.'
 
       - name: Report failure to issue
         if: failure()
@@ -135,4 +92,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment '${{ github.event.issue.number }}' \
-            --body 'MACHINE Aider executor run failed before producing a verified draft PR. Inspect the Actions run; do not merge or bypass the failure.'
+            --body 'MACHINE Copilot executor run failed before producing a verified draft PR. Inspect the Actions run; do not merge or bypass the failure.'

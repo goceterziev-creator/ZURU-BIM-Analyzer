@@ -43,17 +43,7 @@ jobs:
           git config user.email "machine-aider@users.noreply.github.com"
           git checkout -b "$BRANCH"
           gh issue view '${{ github.event.issue.number }}' --json title,body --jq '.title + "\n\n" + .body' > /tmp/machine-task.md
-          cat >> /tmp/machine-task.md <<'EOF'
-
-EXECUTOR RULES:
-- Work only on this bounded issue.
-- Preserve normalized DXF evidence as source truth.
-- Do not add DWG ingestion.
-- Do not require Gemini or any external API for deterministic behavior.
-- Add and run the tests required by the issue.
-- Do not merge main.
-- Implement the change in the repository; do not merely describe it.
-EOF
+          printf '%s\n' '' 'EXECUTOR RULES:' '- Work only on this bounded issue.' '- Preserve normalized DXF evidence as source truth.' '- Do not add DWG ingestion.' '- Do not require Gemini or any external API for deterministic behavior.' '- Add and run the tests required by the issue.' '- Do not merge main.' '- Implement the change in the repository; do not merely describe it.' >> /tmp/machine-task.md
 
       - name: Execute bounded task with Aider and GitHub Models
         env:

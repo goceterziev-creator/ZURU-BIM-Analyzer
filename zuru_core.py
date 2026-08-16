@@ -63,6 +63,11 @@ def analyze_dxf_bytes(file_bytes):
             "_furnish layer entities": _layer_count(layer_stats, "_furnish"),
         }
 
+        # Deterministic evidence-bound classifications (separate from any AI inference)
+        from evidence_classifier import classify_evidence
+
+        evidence_classifications = classify_evidence(evidence_records)
+
         return {
             "entity_stats": entity_stats,
             "layer_stats": layer_stats,
@@ -71,6 +76,11 @@ def analyze_dxf_bytes(file_bytes):
             "geometry_candidates": geometry_candidates,
             "source_signals": source_signals,
             "evidence_records": evidence_records,
+            # Deterministic classifications derived only from normalized evidence_records.
+            # Each entry includes: record (original evidence record, preserved unchanged),
+            # classification (one of door/window/wall/furnishing/room_label/unknown),
+            # provenance: list of facts that triggered the classification.
+            "evidence_classifications": evidence_classifications,
         }
     finally:
         os.unlink(temp_filename)

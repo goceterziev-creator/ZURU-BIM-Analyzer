@@ -44,7 +44,7 @@ jobs:
           gh issue view '${{ github.event.issue.number }}' --json title,body --jq '.title + "\n\n" + .body' > /tmp/machine-task.md
           printf '%s\n' '' 'EXECUTOR RULES:' '- Work only on this bounded issue.' '- Preserve normalized DXF evidence as source truth.' '- Do not add DWG ingestion.' '- Do not require Gemini or any external API for deterministic behavior.' '- Add and run the tests required by the issue.' '- Do not merge main.' '- Implement the change in the repository; do not merely describe it.' '- Make actual repository edits before returning.' >> /tmp/machine-task.md
 
-      - name: Execute bounded task with Aider and Qwen3 Coder Free
+      - name: Execute Run 4 with Aider and Qwen3 Coder Free
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |

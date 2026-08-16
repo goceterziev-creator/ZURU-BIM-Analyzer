@@ -9,6 +9,8 @@ import json
 import re
 import pandas as pd
 
+from dxf_evidence import normalize_modelspace
+
 # Page config
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.3 - Rooms")
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
@@ -29,6 +31,7 @@ def parse_dxf(file_bytes):
     try:
         doc = ezdxf.readfile(temp_filename)
         msp = doc.modelspace()
+        evidence_records = normalize_modelspace(msp)
         
         all_entities = Counter()
         layer_stats = Counter()
@@ -43,7 +46,7 @@ def parse_dxf(file_bytes):
                 text_entities.append(entity)
         
         rooms = len(msp.query('LWPOLYLINE HATCH'))
-        return all_entities, layer_stats, text_entities, rooms, doc
+        return all_entities, layer_stats, text_entities, rooms, doc, evidence_records
         
     finally:
         os.unlink(temp_filename)
@@ -67,13 +70,14 @@ if uploaded_file is not None:
     st.info(f"📄 {filename} | {file_size:.1f} MB")
     
     with st.spinner("Парсинг 52K+ entities..."):
-        all_entities, layer_stats, text_entities, rooms, doc = parse_dxf(uploaded_file.getvalue())
+        all_entities, layer_stats, text_entities, rooms, doc, evidence_records = parse_dxf(uploaded_file.getvalue())
     
     # Metrics
     col1, col2, col3 = st.columns(3)
     col1.metric("📊 Общо entities", f"{sum(all_entities.values()):,}")
     col2.metric("🏠 Оценени стаи", f"{rooms:,}")
     col3.metric("📝 TEXT/MTEXT", len(text_entities))
+    st.caption(f"Нормализирани DXF evidence записи: {len(evidence_records):,}")
     
     # Charts
     st.subheader("📈 Топ Entities")

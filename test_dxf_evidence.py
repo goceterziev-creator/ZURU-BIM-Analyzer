@@ -1,5 +1,7 @@
 import unittest
 
+import ezdxf
+
 from dxf_evidence import normalize_entity, normalize_modelspace
 
 
@@ -56,6 +58,24 @@ class NormalizeEntityTests(unittest.TestCase):
         second = normalize_modelspace(entities)
         self.assertEqual(first, second)
         self.assertEqual([r["handle"] for r in first], ["1", "2"])
+
+    def test_real_ezdxf_entities_preserve_only_source_facts(self):
+        doc = ezdxf.new()
+        msp = doc.modelspace()
+        msp.add_line((0, 0), (1, 1), dxfattribs={"layer": "A-WALL"})
+        msp.add_blockref("CHAIR_01", (0, 0), dxfattribs={"layer": "A-FURN"})
+        msp.add_text("  БАНЯ-123  ", dxfattribs={"layer": "A-ROOM"})
+        msp.add_mtext("  КУХНЯ-123  ", dxfattribs={"layer": "A-ROOM"})
+
+        records = normalize_modelspace(msp)
+
+        self.assertEqual([r["entity_type"] for r in records], ["LINE", "INSERT", "TEXT", "MTEXT"])
+        self.assertEqual(records[1]["block_name"], "CHAIR_01")
+        self.assertEqual(records[2]["text"], "БАНЯ-123")
+        self.assertEqual(records[3]["text"], "КУХНЯ-123")
+        self.assertTrue(all(r["source"] == "DXF" for r in records))
+        self.assertTrue(all("room_type" not in r for r in records))
+        self.assertTrue(all("is_door" not in r for r in records))
 
 
 if __name__ == "__main__":

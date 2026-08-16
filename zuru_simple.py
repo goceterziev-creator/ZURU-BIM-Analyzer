@@ -103,6 +103,11 @@ if uploaded_file is not None:
         for i, room in enumerate(room_texts[:20], 1):
             st.write(f"{i:2d}. {room}")
 
+    with st.expander("🧾 Normalized DXF evidence preview"):
+        st.dataframe(pd.DataFrame(evidence_records[:100]), use_container_width=True, hide_index=True)
+        if len(evidence_records) > 100:
+            st.caption(f"Показани са първите 100 от {len(evidence_records):,} evidence records.")
+
     st.subheader("🤖 Gemini inference (optional)")
     if model is None:
         st.caption("Добави GEMINI_API_KEY като secret/environment variable, ако искаш AI inference.")
@@ -132,12 +137,22 @@ Room-label heuristics: {room_stats}
 
 Note: source signals and heuristics are not equivalent to validated BIM element classification.
 """
-    st.download_button(
-        "📥 Изтегли Evidence Report",
-        report,
-        f"{filename}_evidence_report.txt",
-        use_container_width=True,
-    )
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.download_button(
+            "📥 Evidence Report (.txt)",
+            report,
+            f"{filename}_evidence_report.txt",
+            use_container_width=True,
+        )
+    with col_b:
+        st.download_button(
+            "📥 Normalized Evidence (.json)",
+            json.dumps(evidence_records, ensure_ascii=False, indent=2),
+            f"{filename}_evidence.json",
+            mime="application/json",
+            use_container_width=True,
+        )
 
 st.markdown("---")
 st.caption("ZURU BIM Analyzer · DXF evidence first · AI inference optional")

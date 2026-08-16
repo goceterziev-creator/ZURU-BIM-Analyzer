@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   execute-bounded-machine-task:
-    if: github.event.issue.number == 2 && github.event.label.name == 'machine-execute'
+    if: github.event.issue.number == 2 && github.event.label.name == 'enhancement'
     runs-on: ubuntu-latest
     timeout-minutes: 120
 

@@ -34,6 +34,33 @@ The experiment exercised the following real workflow:
 
 `MACHINE candidate selection → GitHub Issue → delegated executor → implementation → automated verification → failure diagnosis → bounded correction → preserved retry state → re-verification → Draft PR → MACHINE review → PR CI → Human Gate → merge`
 
+## Mandatory Independent Review Gate
+
+A green automated verification or CI result is **necessary evidence, not acceptance authority**.
+
+The required delivery sequence is:
+
+`Executor → Evidence → Tests → CI → MACHINE Review → Human Gate → Merge`
+
+These gates are not interchangeable:
+
+- **Executor** produces the bounded candidate; it does not accept its own work.
+- **Evidence** records what was actually changed and executed.
+- **Tests / CI** demonstrate that defined automated checks pass; a green result does not prove architectural correctness, scope restraint, evidence sufficiency, or merge readiness by itself.
+- **MACHINE Review** independently inspects the exact delivery candidate, its diff, evidence, boundaries, tests, and relevant CI. MACHINE must issue an explicit `APPROVE` or `REQUEST_CHANGES` verdict.
+- **Human Gate** remains the authority for merge when required by the active governance contract.
+- **Merge** may occur only after all preceding required gates have passed.
+
+Therefore:
+
+> **GREEN CI ≠ MACHINE APPROVAL.**
+
+If CI is green but MACHINE Review has not been executed, the candidate remains **NOT APPROVED FOR MERGE**.
+
+If MACHINE finds a blocker after green CI, the correct outcome is `REQUEST_CHANGES`; CI must never be used to bypass independent review.
+
+This rule was explicitly reinforced during Real DWG Converter Integration v1 / PR #13, when the exact cleaned candidate achieved green PR CI but remained behind the MACHINE Review Gate.
+
 ## Evidence chronology
 
 ### 1. Initial implementation produced

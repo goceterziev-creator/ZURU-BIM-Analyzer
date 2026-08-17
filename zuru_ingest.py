@@ -2,7 +2,9 @@ import importlib
 import os
 from typing import Optional
 
-from zuru_core import analyze_dxf_bytes
+# Importing analyze_dxf_bytes lazily inside functions to avoid importing ezdxf at module import time
+# (tests inject or patch the analyzer; production will import when needed)
+
 
 
 class DwgConverterUnavailableError(Exception):
@@ -63,7 +65,12 @@ def ingest_file_bytes(filename: str, file_bytes: bytes, converter: Optional[obje
 
     if ext == "dxf":
         # Canonical DXF path — preserve deterministic behavior
-        analysis = analyze_dxf_bytes(file_bytes)
+        # Allow tests to inject a fake analyzer by setting `zuru_ingest.analyze_dxf_bytes`.
+        if "analyze_dxf_bytes" in globals():
+            analysis = analyze_dxf_bytes(file_bytes)
+        else:
+            import importlib
+            analysis = importlib.import_module("zuru_core").analyze_dxf_bytes(file_bytes)
         return analysis
 
     if ext == "dwg":
@@ -90,7 +97,12 @@ def ingest_file_bytes(filename: str, file_bytes: bytes, converter: Optional[obje
             raise DwgConversionError(f"Converter failed: {exc}")
 
         # Now call canonical DXF analysis path on converted bytes
-        analysis = analyze_dxf_bytes(dxf_bytes)
+        # Allow tests to inject a fake analyzer by setting `zuru_ingest.analyze_dxf_bytes`.
+        if "analyze_dxf_bytes" in globals():
+            analysis = analyze_dxf_bytes(dxf_bytes)
+        else:
+            import importlib
+            analysis = importlib.import_module("zuru_core").analyze_dxf_bytes(dxf_bytes)
         # Attach explicit ingestion provenance without altering evidence records
         analysis = dict(analysis)  # shallow copy to avoid mutating original
         analysis["ingestion_provenance"] = {

@@ -5,7 +5,7 @@ import google.generativeai as genai
 import pandas as pd
 import streamlit as st
 
-from zuru_core import analyze_dxf_bytes
+from zuru_ingest import ingest_file_bytes, DwgConverterUnavailableError, is_converter_configured
 from report_builder import build_reports
 
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.4")
@@ -48,10 +48,18 @@ if uploaded_file is not None:
     st.info(f"📄 {filename} | {file_size:.1f} MB")
 
     try:
-        with st.spinner("Анализ на DXF source evidence..."):
-            analysis = analyze_dxf_bytes(uploaded_file.getvalue())
+        ext = filename.lower().rsplit('.', 1)[-1]
+        if ext == "dwg" and not is_converter_configured():
+            st.error("DWG converter is not configured or available. Enable DWG_CONVERTER_IMPL or inject a converter.")
+            st.stop()
+
+        with st.spinner("Анализ на evidence..."):
+            analysis = ingest_file_bytes(filename, uploaded_file.getvalue())
+    except DwgConverterUnavailableError as exc:
+        st.error(f"DWG conversion unavailable: {exc}")
+        st.stop()
     except Exception as exc:
-        st.error(f"Файлът не можа да бъде прочетен като DXF: {exc}")
+        st.error(f"Файлът не можа да бъде прочетен/анализиран: {exc}")
         st.stop()
 
     entity_stats = analysis["entity_stats"]

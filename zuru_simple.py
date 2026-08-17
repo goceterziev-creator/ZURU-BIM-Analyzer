@@ -40,7 +40,7 @@ def classify_rooms_gemini(room_texts):
         return json.dumps({"error": "Gemini unavailable", "detail": str(exc)}, ensure_ascii=False)
 
 
-uploaded_file = st.file_uploader("📁 Качи DXF файл (до 200MB)", type=["dxf"])
+uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
 
 if uploaded_file is not None:
     filename = uploaded_file.name

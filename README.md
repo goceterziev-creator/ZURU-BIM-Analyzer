@@ -54,6 +54,10 @@ Current verified ingestion: **DXF**.
 
 DWG is not advertised as supported until a real conversion/ingestion path is implemented and tested.
 
+## Real DWG acceptance fixture
+
+`Sana fasadi.dwg` is intentionally present in the repository as the authorized real-file acceptance fixture for MACHINE Issue #12. Its presence does not by itself establish DWG support. DWG may be advertised as verified only after the required real-file chain succeeds: DWG → real converter → DXF → canonical parser → ZURU normalized evidence.
+
 ## Development direction
 
 The next architectural layer is evidence-bound element classification built on top of normalized DXF facts. ZURU should not infer `door`, `wall`, `room`, or other BIM semantics from generic DXF primitives without explicit evidence and validation rules.

@@ -80,16 +80,35 @@ def _bootstrap_libredwg() -> str:
 
     # Clone into a fresh source dir
     src_dir = os.path.join(runner_temp, f"libredwg-src-{int(time.time())}")
-    try:
-        subprocess.run(["git", "clone", "https://github.com/LibreDWG/libredwg.git", src_dir], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as ex:
-        raise RuntimeError(f"Failed to clone LibreDWG upstream: {ex.stderr.decode(errors='ignore')[:500]!r}")
 
-    # Determine upstream commit for provenance
+    # Enforce pinned identity: a file at repository root must contain the
+    # immutable commit SHA to fetch. This prevents silent upstream drift.
+    repo_root = os.path.dirname(__file__)
+    pin_file = os.path.join(repo_root, "libredwg_pin.txt")
+    if not os.path.exists(pin_file):
+        raise RuntimeError("Missing libredwg_pin.txt pin file in repository root; a pinned LibreDWG commit SHA is required")
+    with open(pin_file, "r") as pf:
+        pin = pf.read().strip()
+    if not pin or len(pin) < 7:
+        raise RuntimeError("libredwg_pin.txt does not contain a valid commit SHA")
+
     try:
-        commit = subprocess.run(["git", "-C", src_dir, "rev-parse", "--short", "HEAD"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30).stdout.decode().strip()
+        # Clone without checking out to minimize transient default-branch trust
+        subprocess.run(["git", "clone", "--no-checkout", "--depth", "1", "https://github.com/LibreDWG/libredwg.git", src_dir], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Fetch the exact pinned commit and detach-checkout it. This guarantees
+        # the source used for build matches the reviewed immutable identity.
+        subprocess.run(["git", "-C", src_dir, "fetch", "--depth", "1", "origin", pin], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        subprocess.run(["git", "-C", src_dir, "checkout", "--detach", pin], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except subprocess.CalledProcessError as ex:
+        raise RuntimeError(f"Failed to clone/fetch/checkout pinned LibreDWG upstream: {ex.stderr.decode(errors='ignore')[:500]!r}")
+
+    # Determine upstream commit for provenance and verify it equals the pin
+    try:
+        commit = subprocess.run(["git", "-C", src_dir, "rev-parse", "HEAD"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30).stdout.decode().strip()
     except Exception:
         commit = "unknown"
+    if commit != pin:
+        raise RuntimeError(f"Resolved LibreDWG commit {commit!r} does not match required pinned identity {pin!r}")
 
     # Configure minimal cmake build (disable JSON to reduce deps)
     build_dir = os.path.join(src_dir, "build")

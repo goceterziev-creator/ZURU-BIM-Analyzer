@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from zuru_core import analyze_dxf_bytes
+from report_builder import build_reports
 
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.4")
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
@@ -108,6 +109,39 @@ if uploaded_file is not None:
         if len(evidence_records) > 100:
             st.caption(f"Показани са първите 100 от {len(evidence_records):,} evidence records.")
 
+    # Deterministic classifications (accepted v1) — derived from normalized evidence and preserved separately
+    st.subheader("🔖 Deterministic classifications (accepted v1)")
+    st.caption("Deterministic classifications are derived from normalized evidence records by the accepted evidence classifier. They are shown separately from raw evidence and from optional AI inference.")
+
+    evidence_classifications = analysis.get("evidence_classifications", [])
+    # Compute counts including explicit 'unknown'
+    from collections import Counter
+
+    classification_counts = Counter(c.get("classification", "unknown") for c in evidence_classifications)
+    st.write({"counts": dict(classification_counts)})
+
+    # Prepare a bounded preview table that shows classification, provenance, and key source fields
+    def prepare_classification_preview(classifications, evidence_records, limit=100):
+        rows = []
+        for idx, c in enumerate(classifications[:limit]):
+            rec = c.get("record") or {}
+            rows.append(
+                {
+                    "classification": c.get("classification", "unknown"),
+                    "provenance": c.get("provenance", ""),
+                    "entity_type": rec.get("entity_type"),
+                    "layer": rec.get("layer"),
+                    "text": rec.get("text"),
+                }
+            )
+        return rows
+
+    preview_rows = prepare_classification_preview(evidence_classifications, evidence_records, limit=100)
+    if preview_rows:
+        st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+    else:
+        st.caption("Няма налични детерминистични класификации за показване.")
+
     st.subheader("🤖 Gemini inference (optional)")
     if model is None:
         st.caption("Добави GEMINI_API_KEY като secret/environment variable, ако искаш AI inference.")
@@ -121,38 +155,38 @@ if uploaded_file is not None:
         except Exception:
             st.write(st.session_state.rooms_json)
 
-    report = f"""ZURU BIM Analyzer Report: {filename}
+    # Build product-facing reports and JSON artifacts (deterministic classifications are separate)
+    reports = build_reports(analysis, filename)
 
-EVIDENCE-BOUND DXF FACTS
-Total DXF entities: {sum(entity_stats.values()):,}
-Normalized evidence records: {len(evidence_records):,}
-TEXT/MTEXT labels: {len(room_texts):,}
-Top entity types: {dict(entity_stats.most_common(10))}
-Top layers: {dict(layer_stats.most_common(10))}
-Source signals: {source_signals}
-
-BOUNDED HEURISTICS
-Geometry candidates (LWPOLYLINE + HATCH): {analysis['geometry_candidates']}
-Room-label heuristics: {room_stats}
-
-Note: source signals and heuristics are not equivalent to validated BIM element classification.
-"""
     col_a, col_b = st.columns(2)
     with col_a:
         st.download_button(
             "📥 Evidence Report (.txt)",
-            report,
+            reports["evidence_report_txt"],
             f"{filename}_evidence_report.txt",
             use_container_width=True,
         )
     with col_b:
         st.download_button(
             "📥 Normalized Evidence (.json)",
-            json.dumps(evidence_records, ensure_ascii=False, indent=2),
+            reports["normalized_evidence_json"],
             f"{filename}_evidence.json",
             mime="application/json",
             use_container_width=True,
         )
+
+    # Explicitly expose deterministic classifications as a separate artifact
+    col_c, col_d = st.columns(2)
+    with col_c:
+        st.download_button(
+            "📥 Deterministic Classifications (.json)",
+            reports["deterministic_classifications_json"],
+            f"{filename}_deterministic_classifications.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+    with col_d:
+        st.caption("Deterministic classifications are a separate JSON artifact, derived from normalized evidence. The raw normalized evidence JSON is unchanged and provided above.")
 
 st.markdown("---")
 st.caption("ZURU BIM Analyzer · DXF evidence first · AI inference optional")

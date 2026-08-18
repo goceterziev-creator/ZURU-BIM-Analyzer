@@ -63,6 +63,9 @@ def ingest_file_bytes(filename: str, file_bytes: bytes, converter: Optional[obje
     else:
         ext = filename.rsplit(".", 1)[-1].lower()
 
+    # DIAG-02 TEMPORARY: confirm entry into the ingestion boundary without logging file data.
+    print(f"DIAG-02 | INGEST_ENTRY | filename={filename!r} | extension={ext!r}", flush=True)
+
     if ext == "dxf":
         # Canonical DXF path — preserve deterministic behavior
         # Allow tests to inject a fake analyzer by setting `zuru_ingest.analyze_dxf_bytes`.

@@ -1,6 +1,5 @@
 import json
 import os
-import time
 
 import google.generativeai as genai
 import pandas as pd
@@ -43,15 +42,15 @@ def classify_rooms_gemini(room_texts):
 
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
 
-# DIAG-01 TEMPORARY: server-side upload-boundary instrumentation.
-# Remove after the Android reproduction has localized the failure boundary.
-diag_render = time.time_ns()
+# DIAG-02 TEMPORARY: server-side upload-boundary instrumentation.
 if uploaded_file is None:
-    print(f"DIAG-01 | render={diag_render} | UPLOADER_RETURNED_NONE", flush=True)
+    print("DIAG-02 | UPLOADER_NONE", flush=True)
 else:
+    uploaded_extension = uploaded_file.name.lower().rsplit(".", 1)[-1] if "." in uploaded_file.name else ""
     print(
-        f"DIAG-01 | render={diag_render} | UPLOADER_RECEIVED | "
-        f"name={uploaded_file.name!r} | size_bytes={uploaded_file.size}",
+        f"DIAG-02 | UPLOADER_OBJECT | filename={uploaded_file.name!r} | "
+        f"declared_size={uploaded_file.size} | extension={uploaded_extension!r} | "
+        f"mime_type={getattr(uploaded_file, 'type', None)!r}",
         flush=True,
     )
 
@@ -68,30 +67,16 @@ if uploaded_file is not None:
 
         with st.spinner("Анализ на evidence..."):
             file_bytes = uploaded_file.getvalue()
-            print(
-                f"DIAG-01 | render={diag_render} | INGEST_CALLING | "
-                f"filename={filename!r} | size_bytes={len(file_bytes)} | ext={ext}",
-                flush=True,
-            )
+            if ext == "dwg":
+                print(
+                    f"DIAG-02 | PRE_INGEST_DWG_REACHED | filename={filename!r} | extension={ext!r}",
+                    flush=True,
+                )
             analysis = ingest_file_bytes(filename, file_bytes)
-            print(
-                f"DIAG-01 | render={diag_render} | INGEST_RETURNED | filename={filename!r}",
-                flush=True,
-            )
     except DwgConverterUnavailableError as exc:
-        print(
-            f"DIAG-01 | render={diag_render} | INGEST_DWG_UNAVAILABLE | "
-            f"filename={filename!r} | error={exc!r}",
-            flush=True,
-        )
         st.error(f"DWG conversion unavailable: {exc}")
         st.stop()
     except Exception as exc:
-        print(
-            f"DIAG-01 | render={diag_render} | INGEST_EXCEPTION | "
-            f"filename={filename!r} | error={exc!r}",
-            flush=True,
-        )
         st.error(f"Файлът не можа да бъде прочетен/анализиран: {exc}")
         st.stop()
 

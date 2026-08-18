@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import google.generativeai as genai
 import pandas as pd
@@ -42,6 +43,18 @@ def classify_rooms_gemini(room_texts):
 
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
 
+# DIAG-01 TEMPORARY: server-side upload-boundary instrumentation.
+# Remove after the Android reproduction has localized the failure boundary.
+diag_render = time.time_ns()
+if uploaded_file is None:
+    print(f"DIAG-01 | render={diag_render} | UPLOADER_RETURNED_NONE", flush=True)
+else:
+    print(
+        f"DIAG-01 | render={diag_render} | UPLOADER_RECEIVED | "
+        f"name={uploaded_file.name!r} | size_bytes={uploaded_file.size}",
+        flush=True,
+    )
+
 if uploaded_file is not None:
     filename = uploaded_file.name
     file_size = uploaded_file.size / (1024 * 1024)
@@ -54,11 +67,31 @@ if uploaded_file is not None:
             st.stop()
 
         with st.spinner("Анализ на evidence..."):
-            analysis = ingest_file_bytes(filename, uploaded_file.getvalue())
+            file_bytes = uploaded_file.getvalue()
+            print(
+                f"DIAG-01 | render={diag_render} | INGEST_CALLING | "
+                f"filename={filename!r} | size_bytes={len(file_bytes)} | ext={ext}",
+                flush=True,
+            )
+            analysis = ingest_file_bytes(filename, file_bytes)
+            print(
+                f"DIAG-01 | render={diag_render} | INGEST_RETURNED | filename={filename!r}",
+                flush=True,
+            )
     except DwgConverterUnavailableError as exc:
+        print(
+            f"DIAG-01 | render={diag_render} | INGEST_DWG_UNAVAILABLE | "
+            f"filename={filename!r} | error={exc!r}",
+            flush=True,
+        )
         st.error(f"DWG conversion unavailable: {exc}")
         st.stop()
     except Exception as exc:
+        print(
+            f"DIAG-01 | render={diag_render} | INGEST_EXCEPTION | "
+            f"filename={filename!r} | error={exc!r}",
+            flush=True,
+        )
         st.error(f"Файлът не можа да бъде прочетен/анализиран: {exc}")
         st.stop()
 

@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0",
+  "id": "REAL_DWG_CONVERTER_INTEGRATION_V1",
+  "artifact_type": "canonical_acceptance_archival_snapshot",
+  "status": "ACCEPTED",
+  "repository": "goceterziev-creator/ZURU-BIM-Analyzer",
+  "merge_commit": "49b5e7f650f7964793c23f3689430bfb059d4a5a",
+  "merge_commit_verified_signature": true,
+  "merge_committed_at": "2026-08-17T23:31:09Z",
+  "pr_number": 13,
+  "pr_head": "4264697d6e0597dc575d63d6935f07a223bf5a7f",
+  "prior_main": "17717ee27ef7ad4cf86c2a6b391d466b75b8a15f",
+  "human_gate": {
+    "status": "APPROVED",
+    "identity": "goceterziev-creator",
+    "evidence_basis": "merge commit message and post-merge acceptance document",
+    "accepted_at": null,
+    "accepted_at_status": "not independently recovered as a distinct Human Gate timestamp"
+  },
+  "libredwg_pin": "318a874db260fdb6ee9208ea8ab445772caab72e",
+  "canonical_test_summary": {
+    "command": "python -m unittest discover -v",
+    "discovery_count": 33,
+    "result": "PASS",
+    "workflow": {
+      "name": "ZURU Tests",
+      "run_id": 32079594332,
+      "run_number": 72,
+      "job_id": 95539806663,
+      "job_name": "test",
+      "conclusion": "success",
+      "trigger_context": "pull_request",
+      "checked_out_pr_merge_sha": "d6a7ff8b433b95004419d31cb87b1d9a83424474"
+    },
+    "test_list": [
+      {"name": "test_classification_integration.ClassificationIntegrationTests.test_deterministic_analysis_works_without_api_key", "result": "PASS"},
+      {"name": "test_classification_integration.ClassificationIntegrationTests.test_normalized_evidence_flows_through_classifier_into_result", "result": "PASS"},
+      {"name": "test_classification_integration.ClassificationIntegrationTests.test_normalized_evidence_is_unchanged_after_classification", "result": "PASS"},
+      {"name": "test_classification_integration.ClassificationIntegrationTests.test_unknown_survives_into_product_output", "result": "PASS"},
+      {"name": "test_dwg_ingest.TestDwgIngest.test_dwg_converter_unavailable_raises", "result": "PASS"},
+      {"name": "test_dwg_ingest.TestDwgIngest.test_dwg_with_injected_converter_calls_analysis", "result": "PASS"},
+      {"name": "test_dwg_ingest.TestDwgIngest.test_dxf_route_calls_analyzer_directly", "result": "PASS"},
+      {"name": "test_dwg_ingest.TestDwgIngest.test_failed_conversion_raises_and_does_not_call_analyzer", "result": "PASS"},
+      {"name": "test_dxf_evidence.NormalizeEntityTests.test_insert_preserves_block_identity_without_architectural_inference", "result": "PASS"},
+      {"name": "test_dxf_evidence.NormalizeEntityTests.test_missing_optional_attributes_are_none", "result": "PASS"},
+      {"name": "test_dxf_evidence.NormalizeEntityTests.test_modelspace_order_is_deterministic", "result": "PASS"},
+      {"name": "test_dxf_evidence.NormalizeEntityTests.test_real_ezdxf_entities_preserve_only_source_facts", "result": "PASS"},
+      {"name": "test_dxf_evidence.NormalizeEntityTests.test_text_is_trimmed_and_preserved_as_source_evidence", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_conflicting_evidence_downgrades_to_unknown", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_generic_insert_with_chair_block_is_furnishing_not_door", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_insert_on_door_layer_is_door_with_provenance", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_insert_on_window_layer_is_window_with_provenance", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_line_on_wall_layer_is_wall", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_non_bim_insert_not_classified_as_door", "result": "PASS"},
+      {"name": "test_evidence_classifier.EvidenceClassifierTests.test_text_matching_room_pattern_is_room_label_with_only_triggering_provenance", "result": "PASS"},
+      {"name": "test_report_builder.ReportBuilderTests.test_report_builder_does_not_require_gemini_env", "result": "PASS"},
+      {"name": "test_report_builder.ReportBuilderTests.test_reports_include_unknown_and_provenance_and_preserve_raw", "result": "PASS"},
+      {"name": "test_zuru_core.ZuruCoreTests.test_non_bim_spline_dxf_stays_unclassified", "result": "PASS"},
+      {"name": "test_zuru_core.ZuruCoreTests.test_room_label_heuristics_are_per_label_and_deterministic", "result": "PASS"},
+      {"name": "test_zuru_core.ZuruCoreTests.test_synthetic_architectural_dxf_has_known_ground_truth", "result": "PASS"},
+      {"name": "tests.test_libredwg_pin.LibreDwgPinTests.test_bootstrap_fetches_checks_out_and_verifies_exact_pinned_commit", "result": "PASS"},
+      {"name": "tests.test_libredwg_pin.LibreDwgPinTests.test_matching_cached_binary_is_reused_only_with_matching_provenance", "result": "PASS"},
+      {"name": "tests.test_libredwg_pin.LibreDwgPinTests.test_mismatched_cached_binary_is_rejected_before_reuse", "result": "PASS"},
+      {"name": "tests.test_real_dwg_converter.TestRealDwgConverterAdapter.test_empty_output_raises", "result": "PASS"},
+      {"name": "tests.test_real_dwg_converter.TestRealDwgConverterAdapter.test_executable_unavailable_raises", "result": "PASS"},
+      {"name": "tests.test_real_dwg_converter.TestRealDwgConverterAdapter.test_subprocess_non_zero_exit_raises", "result": "PASS"},
+      {"name": "tests.test_real_dwg_converter.TestRealDwgConverterAdapter.test_successful_conversion_writes_and_cleans_tmpdir", "result": "PASS"},
+      {"name": "tests.test_real_dwg_converter.TestRealDwgConverterAdapter.test_timeout_raises", "result": "PASS"}
+    ]
+  },
+  "real_file_evidence": {
+    "path": "Sana fasadi.dwg",
+    "presence_in_repository": true,
+    "size_bytes": null,
+    "sha256": null,
+    "conversion_result": "PASS_RECORDED_CLAIM",
+    "conversion_note": "The accepted post-merge document records genuine Sana fasadi.dwg input and a real LibreDWG dwg2dxf execution producing non-empty DXF successfully routed through canonical ingestion.",
+    "independent_binary_artifact_location": null,
+    "evidence_status": "recorded acceptance evidence; checksum and retained converted-DXF artifact were not independently recovered for this archival snapshot"
+  },
+  "source_acceptance_document": "docs/gt63-machine/GT63_MACHINE_REAL_DWG_CONVERTER_POST_MERGE_ACCEPTANCE_01.md",
+  "provenance": {
+    "produced_by": "GT63 MACHINE bounded archival implementation under Issue #14 Human Gate",
+    "produced_at": "2026-08-18",
+    "production_mode": "post-hoc archival snapshot from repository and GitHub Actions evidence",
+    "is_automated_original_run_artifact": false,
+    "evidence_sources": [
+      "merge commit 49b5e7f650f7964793c23f3689430bfb059d4a5a",
+      "PR head 4264697d6e0597dc575d63d6935f07a223bf5a7f",
+      "GitHub Actions run 32079594332 / job 95539806663",
+      "libredwg_pin.txt at accepted merge identity",
+      "GT63_MACHINE_REAL_DWG_CONVERTER_POST_MERGE_ACCEPTANCE_01.md"
+    ]
+  },
+  "authority_boundary": {
+    "acceptance_authority": "Human Gate",
+    "ci_role": "technical verification evidence only",
+    "artifact_role": "machine-readable archival snapshot of accepted evidence; not an independent acceptance authority"
+  },
+  "constraints": [
+    "Does not claim native DWG semantic analysis inside ZURU.",
+    "Does not claim universal compatibility with arbitrary DWG files or versions.",
+    "Does not claim semantic BIM correctness of all converted content.",
+    "Does not authorize autonomous merge or deployment authority.",
+    "Null fields represent evidence not independently recovered and must not be inferred."
+  ]
+}

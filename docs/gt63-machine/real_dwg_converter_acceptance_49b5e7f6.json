@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "id": "REAL_DWG_CONVERTER_INTEGRATION_V1",
+  "artifact_type": "canonical_acceptance_archival_snapshot",
+  "status": "ACCEPTED",
+  "repository": "goceterziev-creator/ZURU-BIM-Analyzer",
+  "merge_commit": "49b5e7f650f7964793c23f3689430bfb059d4a5a",
+  "pr_number": 13,
+  "pr_head": "4264697d6e0597dc575d63d6935f07a223bf5a7f",
+  "libredwg_pin": "318a874db260fdb6ee9208ea8ab445772caab72e",
+  "acceptance_source": {
+    "path": "docs/gt63-machine/GT63_MACHINE_REAL_DWG_CONVERTER_POST_MERGE_ACCEPTANCE_01.md",
+    "recorded_verdict": "PASS — REAL_DWG_CONVERTER_INTEGRATION_V1_ACCEPTED"
+  },
+  "canonical_test_summary": {
+    "discovery_count": 33,
+    "discovery_count_evidence_class": "RECORDED_CLAIM_FROM_ACCEPTANCE_DOCUMENT",
+    "overall_result": "PASS",
+    "overall_result_evidence_class": "RECORDED_CLAIM_FROM_ACCEPTANCE_DOCUMENT",
+    "test_list": null,
+    "test_list_status": "NOT_ARCHIVED_IN_REPOSITORY_EVIDENCE_INSPECTED",
+    "ci_run_id": null,
+    "ci_artifact_location": null
+  },
+  "real_file_evidence": {
+    "path": "Sana fasadi.dwg",
+    "size_bytes": null,
+    "sha256": null,
+    "conversion_result": "NON_EMPTY_DXF_ROUTED_THROUGH_CANONICAL_INGESTION",
+    "conversion_result_evidence_class": "RECORDED_CLAIM_FROM_ACCEPTANCE_DOCUMENT",
+    "produced_dxf_artifact_location": null,
+    "boundary": "Evidence is specific to the accepted validation sequence and does not establish universal DWG compatibility or semantic BIM correctness."
+  },
+  "accepted_boundaries": [
+    "LibreDWG-backed DWG-to-DXF conversion behind the existing ingestion boundary",
+    "temporary conversion workspace with cleanup",
+    "argv-list subprocess invocation",
+    "bounded conversion timeout",
+    "missing or empty conversion output rejection",
+    "canonical DXF analyzer validation before converted bytes are returned",
+    "conversion provenance remains separate from normalized DXF evidence"
+  ],
+  "not_claimed": [
+    "native DWG semantic analysis inside ZURU",
+    "universal compatibility with arbitrary DWG files or versions",
+    "semantic BIM correctness of all converted content",
+    "unrestricted runtime network or build authority",
+    "LibreDWG redistribution authority",
+    "autonomous merge authority"
+  ],
+  "provenance": {
+    "artifact_generation_mode": "POST_ACCEPTANCE_ARCHIVAL_TRANSCRIPTION",
+    "produced_by": "GT63 MACHINE bounded implementation after explicit Human Gate",
+    "produced_at": null,
+    "source_evidence_revision": "ce4345c5738f2a3d8426ccfd967a825ab7bbc35a",
+    "human_gate_issue": 14,
+    "note": "This file is a machine-readable archival snapshot of repository acceptance evidence. It is not an automated re-run, does not independently prove historical claims lacking archived machine-readable evidence, and does not create new acceptance authority."
+  }
+}

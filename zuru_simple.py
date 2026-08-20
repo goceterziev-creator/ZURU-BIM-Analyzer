@@ -41,6 +41,7 @@ def classify_rooms_gemini(room_texts):
 
 
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
+st.caption("При анализ от телефон остави този екран отворен, докато статусът стане „Анализът е готов“.")
 
 # DIAG-02 TEMPORARY: server-side upload-boundary instrumentation.
 if uploaded_file is None:
@@ -58,25 +59,62 @@ if uploaded_file is not None:
     filename = uploaded_file.name
     file_size = uploaded_file.size / (1024 * 1024)
     st.info(f"📄 {filename} | {file_size:.1f} MB")
+    analysis_status = st.status(
+        "⏳ Файлът е получен. Подготвям анализа…",
+        expanded=True,
+        state="running",
+    )
 
     try:
         ext = filename.lower().rsplit('.', 1)[-1]
         if ext == "dwg" and not is_converter_configured():
+            analysis_status.update(
+                label="❌ DWG конверторът не е наличен.",
+                expanded=True,
+                state="error",
+            )
             st.error("DWG converter is not configured or available. Enable DWG_CONVERTER_IMPL or inject a converter.")
             st.stop()
 
-        with st.spinner("Анализ на evidence..."):
-            file_bytes = uploaded_file.getvalue()
-            if ext == "dwg":
-                print(
-                    f"DIAG-02 | PRE_INGEST_DWG_REACHED | filename={filename!r} | extension={ext!r}",
-                    flush=True,
-                )
-            analysis = ingest_file_bytes(filename, file_bytes)
+        analysis_status.write("✅ Файлът достигна до ZURU.")
+        file_bytes = uploaded_file.getvalue()
+        if ext == "dwg":
+            analysis_status.update(
+                label="🔄 DWG се конвертира и анализира…",
+                expanded=True,
+                state="running",
+            )
+            analysis_status.write("Тази стъпка може да отнеме повече време при първия анализ.")
+            print(
+                f"DIAG-02 | PRE_INGEST_DWG_REACHED | filename={filename!r} | extension={ext!r}",
+                flush=True,
+            )
+        else:
+            analysis_status.update(
+                label="🔎 DXF evidence се анализира…",
+                expanded=True,
+                state="running",
+            )
+        analysis = ingest_file_bytes(filename, file_bytes)
+        analysis_status.update(
+            label="✅ Анализът е готов.",
+            expanded=False,
+            state="complete",
+        )
     except DwgConverterUnavailableError as exc:
+        analysis_status.update(
+            label="❌ DWG конвертирането не може да стартира.",
+            expanded=True,
+            state="error",
+        )
         st.error(f"DWG conversion unavailable: {exc}")
         st.stop()
     except Exception as exc:
+        analysis_status.update(
+            label="❌ Анализът беше прекъснат.",
+            expanded=True,
+            state="error",
+        )
         st.error(f"Файлът не можа да бъде прочетен/анализиран: {exc}")
         st.stop()
 

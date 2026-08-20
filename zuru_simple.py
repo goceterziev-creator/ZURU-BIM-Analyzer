@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 
 import google.generativeai as genai
 import pandas as pd
@@ -7,6 +8,7 @@ import streamlit as st
 
 from zuru_ingest import ingest_file_bytes, DwgConverterUnavailableError, is_converter_configured
 from report_builder import build_reports
+from zuru_runtime_diag import PROCESS_PID, PROCESS_START_ID
 
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.4")
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
@@ -40,8 +42,23 @@ def classify_rooms_gemini(room_texts):
         return json.dumps({"error": "Gemini unavailable", "detail": str(exc)}, ensure_ascii=False)
 
 
+# DIAG-03 TEMPORARY: distinguish process restart, session replacement, and rerun.
+if "diag03_session_id" not in st.session_state:
+    st.session_state.diag03_session_id = uuid.uuid4().hex
+if "diag03_render_count" not in st.session_state:
+    st.session_state.diag03_render_count = 0
+st.session_state.diag03_render_count += 1
+
 uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
 st.caption("При анализ от телефон остави този екран отворен, докато статусът стане „Анализът е готов“.")
+
+print(
+    f"DIAG-03 | RENDER | process_start_id={PROCESS_START_ID} | pid={PROCESS_PID} | "
+    f"session_id={st.session_state.diag03_session_id} | "
+    f"render_count={st.session_state.diag03_render_count} | "
+    f"uploader_present={uploaded_file is not None}",
+    flush=True,
+)
 
 # DIAG-02 TEMPORARY: server-side upload-boundary instrumentation.
 if uploaded_file is None:

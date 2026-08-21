@@ -1,6 +1,7 @@
 from pathlib import Path
 import io
 import unittest
+from unittest import mock
 
 try:
     import ezdxf
@@ -29,12 +30,34 @@ class TestUploadExperimentContract(unittest.TestCase):
         self.assertIn("st.session_state.pop(_STAGED_FILE_KEY, None)", source)
 
     def test_frontend_requires_explicit_confirmation(self):
-        source = (ROOT / "zuru_staged_uploader_ui.py").read_text(encoding="utf-8")
+        source = (
+            ROOT / "zuru_staged_uploader_component" / "index.html"
+        ).read_text(encoding="utf-8")
         self.assertIn("Потвърди и анализирай", source)
         self.assertIn('button.addEventListener("click", async () => {', source)
         self.assertIn('/claim`, {', source)
         self.assertIn('input.addEventListener("change", async () => {', source)
         self.assertIn('/bytes`, {', source)
+
+    def test_claim_secret_never_uses_url_query_history_or_referrer(self):
+        app_source = (ROOT / "zuru_simple.py").read_text(encoding="utf-8")
+        component_source = (
+            ROOT / "zuru_staged_uploader_component" / "index.html"
+        ).read_text(encoding="utf-8")
+        combined = app_source + component_source
+
+        for forbidden in (
+            "st.query_params",
+            "zuru_staged_claim",
+            "searchParams",
+            "location.assign",
+            "location.href",
+            "document.referrer",
+        ):
+            self.assertNotIn(forbidden, combined)
+        self.assertIn("window.sessionStorage.setItem", component_source)
+        self.assertIn("streamlit:setComponentValue", component_source)
+        self.assertIn("window.sessionStorage.removeItem", component_source)
 
     def test_diagnostics_do_not_log_bytes(self):
         for relative in (
@@ -78,12 +101,18 @@ class TestConfirmedUploadIntegration(unittest.TestCase):
         )
 
         app = AppTest.from_file("zuru_simple.py", default_timeout=10)
-        app.query_params["zuru_staged_claim"] = claim
-        app.run()
+        with mock.patch(
+            "zuru_staged_uploader_ui.staged_uploader",
+            side_effect=[claim, None],
+        ) as component:
+            app.run()
 
         self.assertEqual(list(app.exception), [])
-        self.assertNotIn("zuru_staged_claim", app.query_params)
         self.assertEqual(len(UPLOAD_STAGING_REGISTRY), 0)
+        self.assertEqual(component.call_count, 2)
+        self.assertEqual(
+            app.session_state["_zuru_staged_component_generation"], 1
+        )
 
 
 if __name__ == "__main__":

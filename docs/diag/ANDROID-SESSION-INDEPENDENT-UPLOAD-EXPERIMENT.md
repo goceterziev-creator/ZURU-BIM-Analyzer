@@ -16,9 +16,13 @@ The ordinary Streamlit uploader remains available.
 5. A recovered Streamlit page discovers only ready metadata owned by the same
    browser cookie.
 6. The user must press **Confirm and analyze**. That action creates a
-   high-entropy, single-use claim capability.
-7. `zuru_simple.py` consumes the claim once, deletes the temporary file, and
-   adapts the bytes to the same fields used from Streamlit's `UploadedFile`.
+   high-entropy, single-use claim capability. The component keeps it only in
+   tab-scoped browser session storage and sends it through Streamlit component
+   state over the recovered WebSocket.
+7. `zuru_simple.py` consumes the claim once, acknowledges it through a new
+   component generation, deletes it from browser session storage, deletes the
+   temporary file, and adapts the bytes to the same fields used from
+   Streamlit's `UploadedFile`.
 8. The existing `ingest_file_bytes(filename, file_bytes)` call remains the only
    ingestion entry. DWG conversion, DXF analysis, and reports are unchanged.
 
@@ -40,7 +44,10 @@ Changing a production start command is not part of this experiment.
   lookups also enforce the browser owner before bytes may be stored or a claim
   may be created.
 - Another browser cannot list an owner's metadata or use its upload identifier.
-  Claim capabilities are never logged and must be treated as secrets.
+  Claim capabilities are never placed in a URL, query string, browser history,
+  referrer, or ordinary HTTP request log. They are returned in a protected
+  same-origin response body, held in tab-scoped session storage only until
+  acknowledgement, and transported to Python as Streamlit component state.
 - Only basename-normalized `.dxf` and `.dwg` filenames are accepted.
 - Both declared and observed sizes must match and be from 1 byte through
   200 MiB. Content streams larger than the declaration are rejected.
@@ -58,8 +65,10 @@ Successful claim consumption reads once and deletes immediately. Application
 shutdown cancels cleanup and removes all registry-owned files.
 
 The staged adapter is popped from Streamlit session state before analysis, so a
-later rerun cannot automatically replay it. There is no automatic analysis
-after reconnect and no retry against an expired Streamlit session.
+later rerun cannot automatically replay it. The registry rejects a consumed
+claim even if stale browser state attempts to send it again. There is no
+automatic analysis after reconnect and no retry against an expired Streamlit
+session.
 
 ## Preview acceptance protocol
 
@@ -92,7 +101,7 @@ duplicated, analysis starts without confirmation, expired/consumed claims work,
 temporary data exceeds its lifetime, security/limits weaken, or either desktop
 control regresses.
 
-Rollback is deletion of the four experiment modules, the small integration
-block in `zuru_simple.py`, and experiment-only tests/documentation, followed by
-launching the unchanged `zuru_simple.py` entry point. No converter, analyzer,
-ingestion, dependency, or production data migration is involved.
+Rollback is deletion of the experiment modules/component assets, the small
+integration block in `zuru_simple.py`, and experiment-only tests/documentation,
+followed by launching the unchanged `zuru_simple.py` entry point. No converter,
+analyzer, ingestion, dependency, or production data migration is involved.

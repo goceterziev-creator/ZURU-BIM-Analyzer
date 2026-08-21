@@ -8,7 +8,7 @@ try:
     from starlette.applications import Starlette
 
     from zuru_upload_routes import API_PREFIX, create_upload_routes
-    from zuru_upload_staging import UploadStagingRegistry
+    from zuru_upload_staging import UploadNotFound, UploadStagingRegistry
 
     ROUTE_TESTS_AVAILABLE = True
 except ModuleNotFoundError:
@@ -131,6 +131,8 @@ class TestUploadRoutes(unittest.TestCase):
         uploaded = self.registry.consume_claim(claim_response["claim_token"])
         self.assertEqual(uploaded.name, "Sana fasadi.dwg")
         self.assertEqual(uploaded.getvalue(), b"DWG123")
+        with self.assertRaises(UploadNotFound):
+            self.registry.consume_claim(claim_response["claim_token"])
 
     def test_mutations_reject_missing_xsrf_and_cross_origin(self):
         for headers in (

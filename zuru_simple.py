@@ -5,12 +5,11 @@ import uuid
 import google.generativeai as genai
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from zuru_ingest import ingest_file_bytes, DwgConverterUnavailableError, is_converter_configured
 from report_builder import build_reports
 from zuru_runtime_diag import PROCESS_PID, PROCESS_START_ID
-from zuru_staged_uploader_ui import MOBILE_UPLOAD_HTML
+from zuru_staged_uploader_ui import staged_uploader
 from zuru_upload_staging import (
     InvalidUpload,
     UPLOAD_STAGING_REGISTRY,
@@ -57,13 +56,18 @@ if "diag03_render_count" not in st.session_state:
 st.session_state.diag03_render_count += 1
 
 _STAGED_FILE_KEY = "_zuru_confirmed_staged_upload"
-_STAGED_CLAIM_PARAM = "zuru_staged_claim"
 _STAGED_ERROR_KEY = "_zuru_staged_upload_error"
+_STAGED_COMPONENT_GENERATION_KEY = "_zuru_staged_component_generation"
+_STAGED_CLEAR_CLAIM_KEY = "_zuru_staged_clear_claim"
 
-# A claim is created only by the explicit confirmation button in the isolated
-# HTTP upload surface. Consume it once, remove the bearer value from the URL,
-# and rerun before entering the existing ingestion path.
-staged_claim = st.query_params.get(_STAGED_CLAIM_PARAM)
+# The claim is created only by explicit confirmation. The custom component
+# returns it over Streamlit component state (WebSocket), never through a URL.
+component_generation = st.session_state.get(_STAGED_COMPONENT_GENERATION_KEY, 0)
+clear_staged_claim = st.session_state.pop(_STAGED_CLEAR_CLAIM_KEY, False)
+staged_claim = staged_uploader(
+    clear_claim=clear_staged_claim,
+    key=f"zuru_staged_uploader_{component_generation}",
+)
 if staged_claim:
     try:
         st.session_state[_STAGED_FILE_KEY] = UPLOAD_STAGING_REGISTRY.consume_claim(
@@ -73,7 +77,8 @@ if staged_claim:
         st.session_state[_STAGED_ERROR_KEY] = (
             "Временно каченият файл е изтекъл или вече е използван."
         )
-    del st.query_params[_STAGED_CLAIM_PARAM]
+    st.session_state[_STAGED_COMPONENT_GENERATION_KEY] = component_generation + 1
+    st.session_state[_STAGED_CLEAR_CLAIM_KEY] = True
     st.rerun()
 
 # Pop before analysis so a later Streamlit rerun cannot replay the bytes.
@@ -81,9 +86,6 @@ staged_uploaded_file = st.session_state.pop(_STAGED_FILE_KEY, None)
 staged_upload_error = st.session_state.pop(_STAGED_ERROR_KEY, None)
 if staged_upload_error:
     st.error(staged_upload_error)
-if staged_uploaded_file is None:
-    with st.expander("📱 Android resilient upload — ограничен експеримент"):
-        components.html(MOBILE_UPLOAD_HTML, height=245, scrolling=False)
 
 standard_uploaded_file = st.file_uploader(
     "📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"]

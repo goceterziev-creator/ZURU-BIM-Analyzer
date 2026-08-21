@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import uuid
 
 import google.generativeai as genai
@@ -9,6 +10,10 @@ import streamlit as st
 from zuru_ingest import ingest_file_bytes, DwgConverterUnavailableError, is_converter_configured
 from report_builder import build_reports
 from zuru_runtime_diag import PROCESS_PID, PROCESS_START_ID
+from zuru_upload_recovery import (
+    UPLOAD_SESSION_REGISTRY,
+    is_valid_owner_token,
+)
 
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.4")
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
@@ -49,7 +54,29 @@ if "diag03_render_count" not in st.session_state:
     st.session_state.diag03_render_count = 0
 st.session_state.diag03_render_count += 1
 
-uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
+# Bounded Android recovery experiment: associate this browser with the current
+# Streamlit session using metadata only. No filename or file bytes are retained.
+upload_owner_token = st.query_params.get("zuru_upload_owner")
+if not is_valid_owner_token(upload_owner_token):
+    upload_owner_token = secrets.token_urlsafe(24)
+    st.query_params["zuru_upload_owner"] = upload_owner_token
+
+upload_session_observation = UPLOAD_SESSION_REGISTRY.observe(
+    upload_owner_token,
+    st.session_state.diag03_session_id,
+)
+if upload_session_observation.session_replaced:
+    st.warning(
+        "Връзката беше възстановена с нова сесия. "
+        "От съображения за сигурност файлът не се изпраща автоматично. "
+        "Избери файла отново, за да продължиш."
+    )
+
+uploaded_file = st.file_uploader(
+    "📁 Качи DXF/DWG файл (до 200MB)",
+    type=["dxf", "dwg"],
+    key=f"zuru_upload_{st.session_state.diag03_session_id}",
+)
 st.caption("При анализ от телефон остави този екран отворен, докато статусът стане „Анализът е готов“.")
 
 print(

@@ -9,6 +9,12 @@ import streamlit as st
 from zuru_ingest import ingest_file_bytes, DwgConverterUnavailableError, is_converter_configured
 from report_builder import build_reports
 from zuru_runtime_diag import PROCESS_PID, PROCESS_START_ID
+from zuru_staged_uploader_ui import staged_uploader
+from zuru_upload_staging import (
+    InvalidUpload,
+    UPLOAD_STAGING_REGISTRY,
+    UploadNotFound,
+)
 
 st.set_page_config(layout="wide", page_title="ZURU BIM Analyzer PRO v2.4")
 st.title("🏗️ ZURU Tech BIM Analyzer PRO")
@@ -49,7 +55,42 @@ if "diag03_render_count" not in st.session_state:
     st.session_state.diag03_render_count = 0
 st.session_state.diag03_render_count += 1
 
-uploaded_file = st.file_uploader("📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"])
+_STAGED_FILE_KEY = "_zuru_confirmed_staged_upload"
+_STAGED_ERROR_KEY = "_zuru_staged_upload_error"
+_STAGED_COMPONENT_GENERATION_KEY = "_zuru_staged_component_generation"
+_STAGED_CLEAR_CLAIM_KEY = "_zuru_staged_clear_claim"
+
+# The claim is created only by explicit confirmation. The custom component
+# returns it over Streamlit component state (WebSocket), never through a URL.
+component_generation = st.session_state.get(_STAGED_COMPONENT_GENERATION_KEY, 0)
+clear_staged_claim = st.session_state.pop(_STAGED_CLEAR_CLAIM_KEY, False)
+staged_claim = staged_uploader(
+    clear_claim=clear_staged_claim,
+    key=f"zuru_staged_uploader_{component_generation}",
+)
+if staged_claim:
+    try:
+        st.session_state[_STAGED_FILE_KEY] = UPLOAD_STAGING_REGISTRY.consume_claim(
+            staged_claim
+        )
+    except (InvalidUpload, UploadNotFound):
+        st.session_state[_STAGED_ERROR_KEY] = (
+            "Временно каченият файл е изтекъл или вече е използван."
+        )
+    st.session_state[_STAGED_COMPONENT_GENERATION_KEY] = component_generation + 1
+    st.session_state[_STAGED_CLEAR_CLAIM_KEY] = True
+    st.rerun()
+
+# Pop before analysis so a later Streamlit rerun cannot replay the bytes.
+staged_uploaded_file = st.session_state.pop(_STAGED_FILE_KEY, None)
+staged_upload_error = st.session_state.pop(_STAGED_ERROR_KEY, None)
+if staged_upload_error:
+    st.error(staged_upload_error)
+
+standard_uploaded_file = st.file_uploader(
+    "📁 Качи DXF/DWG файл (до 200MB)", type=["dxf", "dwg"]
+)
+uploaded_file = staged_uploaded_file or standard_uploaded_file
 st.caption("При анализ от телефон остави този екран отворен, докато статусът стане „Анализът е готов“.")
 
 print(
